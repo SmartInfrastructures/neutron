@@ -43,6 +43,7 @@ from neutron.openstack.common.rpc import proxy
 from neutron.plugins.common import constants as svc_constants
 from neutron.plugins.ryu.common import config  # noqa
 from neutron.plugins.ryu.db import api_v2 as db_api_v2
+from compiler.pycodegen import TRY_FINALLY
 
 
 LOG = logging.getLogger(__name__)
@@ -213,18 +214,20 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
             super(RyuNeutronPluginV2, self).delete_network(context, id)
 
     def create_port(self, context, port):
+        print "[daniel] %s:%s portaID=%s" % (__name__, "create_port", 'port')
         session = context.session
         port_data = port['port']
         with session.begin(subtransactions=True):
             self._ensure_default_security_group_on_port(context, port)
-            sgids = self._get_security_groups_on_port(context, port)
-            port = super(RyuNeutronPluginV2, self).create_port(context, port)
+            sgids = self._get_security_groups_on_port(context, port) 
+            port = super(RyuNeutronPluginV2, self).create_port(context, port) #<---creazione id
             self._process_portbindings_create_and_update(context,
                                                          port_data,
                                                          port)
             self._process_port_create_security_group(
                 context, port, sgids)
         self.notify_security_groups_member_updated(context, port)
+        print "create network ID"
         self.iface_client.create_network_id(port['id'], port['network_id'])
         return port
 
@@ -272,4 +275,14 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
 
         if deleted:
             db_api_v2.set_port_status(session, id, q_const.PORT_STATUS_DOWN)
+        
+        #####update rate limid    
+        try:
+            if port['port']['rate_limit']:
+                self.iface_client.update_rate_limit(original_port['id'],port['port']['rate_limit'])
+        except KeyError:
+            print "key error"
+        except Exception:
+            print "generale exception"
+        
         return updated_port
