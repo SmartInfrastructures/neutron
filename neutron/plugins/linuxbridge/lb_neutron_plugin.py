@@ -473,7 +473,6 @@ class LinuxBridgePluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         return [self._fields(net, fields) for net in nets]
 
     def create_port(self, context, port):
-        print "[daniel] eccomi qui alla creazione porta in linuxbridge"
         session = context.session
         port_data = port['port']
         with session.begin(subtransactions=True):

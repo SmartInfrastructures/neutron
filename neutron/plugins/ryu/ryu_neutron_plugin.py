@@ -214,7 +214,6 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
             super(RyuNeutronPluginV2, self).delete_network(context, id)
 
     def create_port(self, context, port):
-        print "[daniel] %s:%s portaID=%s" % (__name__, "create_port", 'port')
         session = context.session
         port_data = port['port']
         with session.begin(subtransactions=True):
@@ -227,7 +226,6 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
             self._process_port_create_security_group(
                 context, port, sgids)
         self.notify_security_groups_member_updated(context, port)
-        print "create network ID"
         self.iface_client.create_network_id(port['id'], port['network_id'])
         return port
 
