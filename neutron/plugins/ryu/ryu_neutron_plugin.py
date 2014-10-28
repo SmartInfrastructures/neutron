@@ -274,10 +274,12 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         if deleted:
             db_api_v2.set_port_status(session, id, q_const.PORT_STATUS_DOWN)
         
-        #####update rate limid    
+        #####update rate limit
         try:
-            if port['port']['rate_limit']:
+            if 'rate_limit' in port['port']:
                 self.iface_client.update_rate_limit(original_port['id'],port['port']['rate_limit'])
+            elif 'dscp' in port['port']:
+                self.iface_client.update_dscp(original_port['id'], port['port']['dscp'])
         except KeyError:
             print "key error"
         except Exception:
