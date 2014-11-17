@@ -119,3 +119,7 @@ IPV6_SLAAC = 'slaac'
 IPV6_MODES = [DHCPV6_STATEFUL, DHCPV6_STATELESS, IPV6_SLAAC]
 
 ATTRIBUTES_TO_UPDATE = 'attributes_to_update'
+
+#[qos]
+TYPE_QOS_DSCP = "dscp"
+TYPE_QOS_RATELIMIT = "ratelimit"

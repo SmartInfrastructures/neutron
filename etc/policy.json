@@ -131,5 +131,10 @@
 
     "get_service_provider": "rule:regular_user",
     "get_lsn": "rule:admin_only",
-    "create_lsn": "rule:admin_only"
+    "create_lsn": "rule:admin_only",
+    
+    "create_qos": "",
+    "get_qos": "rule:admin_or_owner",
+    "update_qos": "rule:admin_or_owner",
+    "delete_qos": "rule:admin_or_owner"
 }
