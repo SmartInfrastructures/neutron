@@ -37,16 +37,27 @@ RESOURCE_ATTRIBUTE_MAP = {
         'policies': {'allow_post': True, 'allow_put': True,
                      'is_visible': True, 'default': '',
                      'validate': {'type:dict': None}},
-        'type': {'allow_post': True, 'allow_put': True,
-                 'is_visible': True, 'default': '',
-                 'validate': {'type:values': [constants.TYPE_QOS_DSCP,
-                                              constants.TYPE_QOS_RATELIMIT]}},
+   #     'type': {'allow_post': True, 'allow_put': True,
+   #              'is_visible': True, 'default': '',
+   #              'validate': {'type:values': [constants.TYPE_QOS_DSCP,
+   #                                           constants.TYPE_QOS_RATELIMIT]}}
         'description': {'allow_post': True, 'allow_put': True,
                         'is_visible': True, 'default': '',
                         'validate': {'type:string': None}},
         'tenant_id': {'allow_post': True, 'allow_put': False,
                       'required_by_policy': True,
                       'is_visible': True},
+        
+        'default': {'allow_post': True, 'allow_put': True,
+               'validate': {'type:string': None},
+               'is_visible': True},
+            
+        'visible': {'allow_post': True, 'allow_put': True,
+               'validate': {'type:string': None},
+               'is_visible': True},
+        
+        'name': {'allow_post': True, 'allow_put': True,
+               'is_visible': True},
     },
 }
 

@@ -43,6 +43,9 @@ from neutron.openstack.common import log
 from neutron.openstack.common.rpc import dispatcher
 from neutron.plugins.ryu.common import config  # noqa
 
+#[qos]
+from neutron.services.qos.agents import qos_rpc
+
 
 LOG = log.getLogger(__name__)
 
@@ -163,7 +166,8 @@ class VifPortSet(object):
 
 
 class RyuPluginApi(agent_rpc.PluginApi,
-                   sg_rpc.SecurityGroupServerRpcApiMixin):
+                   sg_rpc.SecurityGroupServerRpcApiMixin,
+                   qos_rpc.QoSServerRpcApiMixin):
     def get_ofp_rest_api_addr(self, context):
         LOG.debug(_("Get Ryu rest API address"))
         return self.call(context,
@@ -178,8 +182,13 @@ class RyuSecurityGroupAgent(sg_rpc.SecurityGroupAgentRpcMixin):
         self.root_helper = root_helper
         self.init_firewall()
 
-
-class OVSNeutronOFPRyuAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
+class OVSQoSAgent(qos_rpc.QoSAgentRpcMixin):
+    def __init__(self, context, plugin_rpc, root_helper, **kwargs):
+        self.context = context
+        self.plugin_rpc = plugin_rpc
+        self.root_helper = root_helper
+        
+class OVSNeutronOFPRyuAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,qos_rpc.QoSServerRpcApiMixin):
 
     RPC_API_VERSION = '1.1'
 
@@ -193,6 +202,26 @@ class OVSNeutronOFPRyuAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                                               root_helper)
         self._setup_integration_br(root_helper, integ_br, tunnel_ip,
                                    ovsdb_port, ovsdb_ip)
+        
+        # QoS agent support
+        self.qos_agent = OVSQoSAgent(self.context,
+                                     self.plugin_rpc,
+                                     root_helper)
+        if 'OpenflowQoSVlanDriver' in cfg.CONF.qos.qos_driver:
+            external_bridge = None
+            # Find the br-ex bridge
+            for bridge in self.ancillary_brs:
+                if bridge.br_name == 'br-ex':
+                    external_bridge = bridge
+                    break
+            if external_bridge:
+                self.qos_agent.init_qos(bridge=external_bridge,
+                                        local_vlan_map=self.local_vlan_map
+                                        )
+            else:
+                LOG.exception(_("Failed to locate br-ex for QoS API"))
+        else:
+            self.qos_agent.init_qos()
 
     def _setup_rpc(self):
         self.topic = topics.AGENT

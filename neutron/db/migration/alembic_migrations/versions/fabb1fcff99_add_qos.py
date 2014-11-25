@@ -43,9 +43,9 @@ def upgrade(active_plugins=None, options=None):
         return
     
     op.create_table(
-        'qoses',
-        sa.Column('tenant_id', sa.String(length=255), nullable=False),
+        'qos_main',
         sa.Column('id', sa.String(length=36), primary_key=True),
+        sa.Column('policy_id', sa.String(length=255), nullable=False),
         sa.Column('type', sa.Enum(constants.TYPE_QOS_DSCP,
                                   constants.TYPE_QOS_RATELIMIT,
                                   name='qos_types')),
@@ -54,14 +54,30 @@ def upgrade(active_plugins=None, options=None):
     )
     
     op.create_table(
-        'qos_policies',
-        sa.Column('id', sa.String(length=36), nullable=False),
-        sa.Column('qos_id', sa.String(length=36), nullable=False),
-        sa.Column('key', sa.String(length=255), nullable=False),
+        'qos_policy',
+        sa.Column('id', sa.String(length=36), primary_key=True),
+        sa.Column('dscp', sa.Integer, nullable=False),
+        sa.Column('ingress_rate', sa.Integer, nullable=False),
+        sa.Column('egress_rate', sa.Integer, nullable=False),
+        sa.Column('burst_percent', sa.Integer, nullable=False),
         sa.Column('value', sa.String(length=255), nullable=False),
-        sa.ForeignKeyConstraint(['qos_id'], ['qoses.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id', 'qos_id', 'key'),
+        #sa.ForeignKeyConstraint(['qos_id'], ['qoses.id'], ondelete='CASCADE'),
+        #sa.PrimaryKeyConstraint('id', 'qos_id', 'key'),
     )
+    
+    op.create_table(
+        'qos_mapping',
+        sa.Column('id', sa.Integer, primary_key=True),
+        sa.Column('port_id', sa.String(length=255)),
+        sa.Column('qos_id', sa.String(length=255)),
+                    )
+    
+    op.create_table(
+        'qos_tenant_access',
+        sa.Column('id', sa.Integer, primary_key=True),
+        sa.Column('qos_id', sa.String(length=255)),
+        sa.Column('tenant_id', sa.String(length=255)),
+                    )
 
     pass
 
@@ -70,7 +86,8 @@ def downgrade(active_plugins=None, options=None):
     if not migration.should_run(active_plugins, migration_for_plugins):
         return
     
-    op.drop_table('qos_policies')
-    op.drop_table('qoses')
+    op.drop_table('qos_main')
+    op.drop_table('qos_policy')
+    op.drop_table('qos_mapping')
 
     pass

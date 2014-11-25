@@ -45,13 +45,18 @@ from neutron.plugins.ryu.common import config  # noqa
 from neutron.plugins.ryu.db import api_v2 as db_api_v2
 from compiler.pycodegen import TRY_FINALLY
 
+#[qos]
+from neutron.db import qos_rpc_base as qos_db_rpc
+from neutron.extensions import qos
+from neutron.services.qos.agents import qos_rpc as qos_rpc
 
 LOG = logging.getLogger(__name__)
 
 
 class RyuRpcCallbacks(dhcp_rpc_base.DhcpRpcCallbackMixin,
                       l3_rpc_base.L3RpcCallbackMixin,
-                      sg_db_rpc.SecurityGroupServerRpcCallbackMixin):
+                      sg_db_rpc.SecurityGroupServerRpcCallbackMixin,
+                      qos_db_rpc.QoSServerRpcCallbackMixin):#[qos]
 
     RPC_API_VERSION = '1.1'
 
@@ -74,7 +79,8 @@ class RyuRpcCallbacks(dhcp_rpc_base.DhcpRpcCallbackMixin,
 
 
 class AgentNotifierApi(proxy.RpcProxy,
-                       sg_rpc.SecurityGroupAgentRpcApiMixin):
+                       sg_rpc.SecurityGroupAgentRpcApiMixin,
+                       qos_rpc.QoSAgentRpcApiMixin):#[qos]
 
     BASE_RPC_API_VERSION = '1.0'
 
@@ -96,11 +102,14 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
                          extraroute_db.ExtraRoute_db_mixin,
                          l3_gwmode_db.L3_NAT_db_mixin,
                          sg_db_rpc.SecurityGroupServerRpcMixin,
-                         portbindings_base.PortBindingBaseMixin):
+                         portbindings_base.PortBindingBaseMixin,
+                         qos_db_rpc.QoSServerRpcMixin):
+                        #qos_rpc.QoSAgentRpcApiMixin):#[qos]
 
     _supported_extension_aliases = ["external-net", "router", "ext-gw-mode",
                                     "extraroute", "security-group",
-                                    "binding", "quotas"]
+                                    "binding", "quotas",
+                                    "quality-of-service"] #[qos]
 
     @property
     def supported_extension_aliases(self):
@@ -228,6 +237,10 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         self.notify_security_groups_member_updated(context, port)
         self.iface_client.create_network_id(port['id'], port['network_id'])
         return port
+    
+    def create_qos(self, context, qos):
+        id="asdasdasddassdfbh"
+        self._process_create_qos(context, id, qos)
 
     def delete_port(self, context, id, l3_port_check=True):
         # if needed, check to see if this is a port owned by

@@ -123,3 +123,6 @@ ATTRIBUTES_TO_UPDATE = 'attributes_to_update'
 #[qos]
 TYPE_QOS_DSCP = "dscp"
 TYPE_QOS_RATELIMIT = "ratelimit"
+TYPE_QOS_INGRESS_RATE = "ingressrate"
+TYPE_QOS_EGRESS_RATE = "egressrate"
+TYPE_QOS_BURST_RATE = "burstrate"
