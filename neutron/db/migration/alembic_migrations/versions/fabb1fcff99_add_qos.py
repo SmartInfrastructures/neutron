@@ -45,38 +45,45 @@ def upgrade(active_plugins=None, options=None):
     op.create_table(
         'qos_main',
         sa.Column('id', sa.String(length=36), primary_key=True),
-        sa.Column('policy_id', sa.String(length=255), nullable=False),
-        sa.Column('type', sa.Enum(constants.TYPE_QOS_DSCP,
-                                  constants.TYPE_QOS_RATELIMIT,
-                                  name='qos_types')),
+        #sa.Column('policy_id', sa.String(length=255), nullable=False),
         sa.Column('description', sa.String(length=255), nullable=False),
+        sa.Column('name', sa.String(length=255), nullable=False),
+        sa.Column('visible', sa.Boolean, nullable=False),
+        sa.Column('default', sa.Boolean, nullable=False),
+        sa.Column('tenant_id', sa.String(length=255), nullable=False),
+        #sa.ForeignKeyConstraint(['policy_id'], ['qos_policy.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id'),
     )
     
     op.create_table(
         'qos_policy',
         sa.Column('id', sa.String(length=36), primary_key=True),
-        sa.Column('dscp', sa.Integer, nullable=False),
-        sa.Column('ingress_rate', sa.Integer, nullable=False),
-        sa.Column('egress_rate', sa.Integer, nullable=False),
-        sa.Column('burst_percent', sa.Integer, nullable=False),
-        sa.Column('value', sa.String(length=255), nullable=False),
-        #sa.ForeignKeyConstraint(['qos_id'], ['qoses.id'], ondelete='CASCADE'),
-        #sa.PrimaryKeyConstraint('id', 'qos_id', 'key'),
+        sa.Column(constants.TYPE_QOS_DSCP, sa.Integer, nullable=False),
+        sa.Column(constants.TYPE_QOS_INGRESS_RATE, sa.Integer, nullable=False),
+        sa.Column(constants.TYPE_QOS_EGRESS_RATE, sa.Integer, nullable=False),
+        sa.Column(constants.TYPE_QOS_BURST_RATE, sa.FLOAT(1,1), nullable=False),
+        sa.Column('qos_id', sa.String(length=255), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.ForeignKeyConstraint(['qos_id'], ['qos_main.id'], ondelete='CASCADE'),
     )
-    
+        
     op.create_table(
         'qos_mapping',
         sa.Column('id', sa.Integer, primary_key=True),
         sa.Column('port_id', sa.String(length=255)),
         sa.Column('qos_id', sa.String(length=255)),
+        sa.PrimaryKeyConstraint('id'),
+        sa.ForeignKeyConstraint(['qos_id'], ['qos_main.id']),
+        sa.ForeignKeyConstraint(['port_id'],['ports.id']),
                     )
     
     op.create_table(
         'qos_tenant_access',
         sa.Column('id', sa.Integer, primary_key=True),
         sa.Column('qos_id', sa.String(length=255)),
-        sa.Column('tenant_id', sa.String(length=255)),
+        sa.Column('tenant_id', sa.String(length=255), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.ForeignKeyConstraint(['qos_id'], ['qos_main.id']),
                     )
 
     pass

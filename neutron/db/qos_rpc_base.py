@@ -83,8 +83,6 @@ class QoSServerRpcMixin(qos_db.QoSDbMixin):
                                               net_mapping['network_id'])
         super(QoSServerRpcMixin, self).delete_qos(context, id)
         
-    def _process_create_qos(self, context, id, qos):
-        print "E qui aggiorni il database"
 
 
 class QoSServerRpcCallbackMixin(object):

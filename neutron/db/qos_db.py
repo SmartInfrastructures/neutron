@@ -25,6 +25,8 @@ from neutron.extensions import qos as ext_qos
 import sqlalchemy as sa
 from sqlalchemy import orm
 
+list_avaible_policy = [constants.TYPE_QOS_BURST_RATE, constants.TYPE_QOS_DSCP,
+                       constants.TYPE_QOS_EGRESS_RATE, constants.TYPE_QOS_INGRESS_RATE]
 
 class QoSNotFound(exceptions.NotFound):
     message = _("QoS %(qos_id)s could not be found")
@@ -38,6 +40,11 @@ class QoSPortMappingNotFound(exceptions.NotFound):
 class QoSNetworkMappingNotFound(exceptions.NotFound):
     message = _("QoS mapping for network %(net_id)s"
                 "and QoS %(qos_id)s could not be found")
+    
+def _convert_true_false(value):
+    if value.encode('UTF-8').lower() == 'true':
+        return 1    
+    return 0
 
 
 class QoS(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):
@@ -52,21 +59,38 @@ class QoS(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):
     networks = orm.relationship('NetworkQoSMapping',
                                 cascade='all, delete, delete-orphan')
     
-class QoSCN(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):
+class QoSCN(model_base.BASEV2, models_v2.HasId): #, models_v2.HasTenant):
     __tablename__ = 'qos_main'
-    description = sa.Column(sa.String(255), nullable=True)
     name = sa.Column(sa.String(255), nullable=False)
     default = sa.Column(sa.Boolean, nullable=False)
     visible = sa.Column(sa.Boolean, nullable=False)
-#    policies = orm.relationship('QoSPolicy',
-#                                cascade='all, delete, delete-orphan')
+    description = sa.Column(sa.String(255), nullable=True)
+    policies = orm.relationship('PolicyCN',
+                                cascade='all, delete, delete-orphan')
+    #mapping = orm.relationship('PolicyCN',
+    #                            cascade='all, delete, delete-orphan')
     
-class PolicyCN(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):
+
+class PolicyCN(model_base.BASEV2, models_v2.HasId): #, models_v2.HasTenant):
     __tablename__ = 'qos_policy'
     dscp = sa.Column(sa.Integer, name=constants.TYPE_QOS_DSCP)
     ingress_rate = sa.Column(sa.Integer, name = constants.TYPE_QOS_INGRESS_RATE)
     egress_rate = sa.Column(sa.Integer, name = constants.TYPE_QOS_EGRESS_RATE)
-    burst_rate = sa.Column(sa.Integer, name = constants.TYPE_QOS_BURST_RATE)
+    burst_rate = sa.Column(sa.FLOAT(1,1), name = constants.TYPE_QOS_BURST_RATE)
+    qos_id = sa.Column(sa.String(36),
+                       sa.ForeignKey('qos_main.id', ondelete='CASCADE'),
+                       nullable=False,
+                       primary_key=True)
+
+class QosMappingCN(model_base.BASEV2):
+    qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
+                       ondelete='CASCADE'), nullable=False, primary_key=True)
+    port_id = sa.Column(sa.String(36), sa.ForeignKey('ports.id',
+                       ondelete='CASCADE'), nullable=False, primary_key=True)
+    
+class TenantAccessMappingCN(model_base.BASEV2, models_v2.HasTenant):
+    qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
+                       ondelete='CASCADE'), nullable=False, primary_key=True)
 
 
 class QoSPolicy(model_base.BASEV2, models_v2.HasId):
@@ -107,15 +131,17 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
             res['policies'][item['key']] = item['value']
         return self._fields(res, fields)
     
-    def _create_qos_cn_dict(self, qos, fields=None):
+    def _create_qos_cn_dict(self, qos, policies, fields=None):
         res = {'id': qos['id'],
-               'tenant_id': qos['tenant_id'],
+               #'tenant_id': qos['tenant_id'],
                'description': qos['description'],
                'default': qos['default'],
-               'visible': qos['visible']
+               'visible': qos['visible'],
+               'name':qos['name'],
+               'policies': {}
                }
-        for item in qos.policies:
-            res['policies'][item['key']] = item['value']
+        for item in list_avaible_policy:
+            res['policies'][item] = policies.get(item)
         return self._fields(res, fields)
 
     def _db_delete(self, context, item):
@@ -123,18 +149,6 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
             context.session.delete(item)
 
     def create_qos(self, context, qos):
-        #qos = 
-# {
-#     u'qos': {
-#         'tenant_id': u'43f8d...',
-#         u'type': u'dscp',
-#         'description': '',
-#         u'policies': {
-#             u'dscp': u'26',
-#             u'rate-limit': u'1000'
-#         }
-#     }
-# }
         if 'policies' not in qos['qos']:
             raise ext_qos.QoSValidationError()
         else:
@@ -143,19 +157,36 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
         tenant_id = self._get_tenant_id_for_create(context, qos)
 
         with context.session.begin(subtransactions=True):
-            qos_db_item = QoSCN(description = qos['qos']['description'],
+            qos_db_item = QoSCN( description = qos['qos']['description'],
                                  name = qos['qos']['name'],
-                                 default = qos['qos']['default'],
-                                 visible = qos['qos']['visible']
+                                 default = _convert_true_false(qos['qos']['default']),
+                                 visible = _convert_true_false(qos['qos']['visible'])
                                  )
-            policy_db_item = PolicyCN(dscp=qos['qos']['policies'][constants.TYPE_QOS_DSCP],
-                                      egress_rate=['qos']['policies'][constants.TYPE_QOS_EGRESS_RATE],
-                                      ingress_rate=['qos']['policies'][constants.TYPE_QOS_INGRESS_RATE],
-                                      burst_rate=['qos']['policies'][constants.TYPE_QOS_BURST_RATE])
+            if constants.TYPE_QOS_DSCP in qos['qos']['policies']:
+                _dscp = qos['qos']['policies'][constants.TYPE_QOS_DSCP]
+            else:
+                _dscp = 0
+            if constants.TYPE_QOS_EGRESS_RATE in qos['qos']['policies']:
+                _egress_rate = qos['qos']['policies'][constants.TYPE_QOS_EGRESS_RATE]
+            else:
+                _egress_rate = 0
+            if constants.TYPE_QOS_INGRESS_RATE in qos['qos']['policies']:
+                _ingress_rate = qos['qos']['policies'][constants.TYPE_QOS_INGRESS_RATE]
+            else:
+                _ingress_rate = 0
+            if constants.TYPE_QOS_BURST_RATE in qos['qos']['policies']:
+                _burst_rate = qos['qos']['policies'][constants.TYPE_QOS_BURST_RATE]
+            else:
+                _burst_rate = 0.2
+                            
+            policy_db_item = PolicyCN(qos_id = qos_db_item.id,
+                                      dscp = _dscp, egress_rate = _egress_rate, 
+                                      ingress_rate = _ingress_rate, burst_rate = _burst_rate)
+
             qos_db_item.policies.append(policy_db_item)
             context.session.add(qos_db_item)
         #return self._create_qos_dict(qos_db_item)
-        return self._create_qos_cn_dict(qos_db_item)
+        return self._create_qos_cn_dict(qos_db_item, policy_db_item)
 
     def create_qos_for_network(self, context, qos_id, network_id):
         with context.session.begin(subtransactions=True):
@@ -275,14 +306,14 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
         if dscp % 4 != 0:
             raise ext_qos.QoSValidationError()
         
-    def validate_policy_ingressrate(self, ingressrate):
+    def validate_policy_ingress_rate(self, ingressrate):
         if ingressrate <50:
             raise ext_qos.QoSValidationError()
         
-    def validate_policy_egressrate(self, egressrate):
+    def validate_policy_egress_rate(self, egressrate):
        if egressrate <50:
             raise ext_qos.QoSValidationError()
     
-    def validate_policy_burstrate(self, burstrate):
-        if burstrate > 1 or burstrate < 0:
+    def validate_policy_burst_percent(self, burst_percent):
+        if burst_percent > 1 or burst_percent < 0:
             raise ext_qos.QoSValidationError()

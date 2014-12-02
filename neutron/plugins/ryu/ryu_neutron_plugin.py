@@ -237,10 +237,6 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         self.notify_security_groups_member_updated(context, port)
         self.iface_client.create_network_id(port['id'], port['network_id'])
         return port
-    
-    def create_qos(self, context, qos):
-        id="asdasdasddassdfbh"
-        self._process_create_qos(context, id, qos)
 
     def delete_port(self, context, id, l3_port_check=True):
         # if needed, check to see if this is a port owned by
