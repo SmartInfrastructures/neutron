@@ -47,8 +47,11 @@ from compiler.pycodegen import TRY_FINALLY
 
 #[qos]
 from neutron.db import qos_rpc_base as qos_db_rpc
-from neutron.extensions import qos
+from neutron.extensions import qos as qosExt
 from neutron.services.qos.agents import qos_rpc as qos_rpc
+from boto.sqs.attributes import Attributes
+from neutron.db.qos_db import QoSCN as qosDb
+from neutron.common import constants
 
 LOG = logging.getLogger(__name__)
 
@@ -103,8 +106,8 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
                          l3_gwmode_db.L3_NAT_db_mixin,
                          sg_db_rpc.SecurityGroupServerRpcMixin,
                          portbindings_base.PortBindingBaseMixin,
-                         qos_db_rpc.QoSServerRpcMixin):
-                        #qos_rpc.QoSAgentRpcApiMixin):#[qos]
+                         #qos_rpc.QoSAgentRpcApiMixin,
+                         qos_db_rpc.QoSServerRpcMixin,):#[qos]
 
     _supported_extension_aliases = ["external-net", "router", "ext-gw-mode",
                                     "extraroute", "security-group",
@@ -258,6 +261,11 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
     def update_port(self, context, id, port):
         deleted = port['port'].get('deleted', False)
         session = context.session
+        
+        if port['port'].get(qosExt.QOS):
+            qos_id = port['port'].get(qosExt.QOS)
+            self._process_create_qos_for_port(context, qos_id, id)
+        
 
         need_port_update_notify = False
         with session.begin(subtransactions=True):
@@ -283,6 +291,20 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         if deleted:
             db_api_v2.set_port_status(session, id, q_const.PORT_STATUS_DOWN)
         
+        try:
+            qos_database = self._create_qos_cn_dict(self._get_by_id(context, qosDb, qos_id), fields='policies')
+            ingress_rate = qos_database['policies'][constants.TYPE_QOS_INGRESS_RATE]
+            egress_rate = qos_database['policies'][constants.TYPE_QOS_EGRESS_RATE]
+            dscp = qos_database['policies'][constants.TYPE_QOS_DSCP]
+            burst_percent = qos_database['policies'][constants.TYPE_QOS_BURST_RATE]
+            
+        except Exception:
+            return {}
+        
+        self.iface_client.update_rate_limit(original_port['id'], ingress_rate, constants.TYPE_QOS_INGRESS_RATE, burst_percent = burst_percent)
+        self.iface_client.update_rate_limit(original_port['id'], egress_rate, constants.TYPE_QOS_EGRESS_RATE, burst_percent = burst_percent)
+        self.iface_client.update_dscp(original_port['id'], dscp)
+
         #####update rate limit
         try:
             if 'rate_limit' in port['port']:

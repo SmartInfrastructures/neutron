@@ -83,7 +83,8 @@ class PolicyCN(model_base.BASEV2, models_v2.HasId):#, models_v2.HasTenant):
     burst_percent = sa.Column(sa.FLOAT(1,1), nullable=False)
 
 
-class QosMappingCN(model_base.BASEV2):
+class QosMappingCN(model_base.BASEV2, models_v2.HasId):
+    __tablename__ = 'qos_mapping'
     qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
                        ondelete='CASCADE'), nullable=False, primary_key=True)
     port_id = sa.Column(sa.String(36), sa.ForeignKey('ports.id',
@@ -197,8 +198,14 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
         return db.qos_id
 
     def create_qos_for_port(self, context, qos_id, port_id):
+#         class QosMappingCN(model_base.BASEV2):
+#     qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
+#                        ondelete='CASCADE'), nullable=False, primary_key=True)
+#     port_id = sa.Column(sa.String(36), sa.ForeignKey('ports.id',
+#                        ondelete='CASCADE'), nullable=False, primary_key=True)
         with context.session.begin(subtransactions=True):
-            db = PortQoSMapping(qos_id=qos_id, port_id=port_id)
+            #db = PortQoSMapping(qos_id=qos_id, port_id=port_id)
+            db = QosMappingCN(qos_id=qos_id, port_id=port_id)
             context.session.add(db)
         return db.qos_id
 
@@ -244,8 +251,8 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
     def get_qos(self, context, id, fields=None):
         try:
             with context.session.begin(subtransactions=True):
-                return self._create_qos_dict(
-                    self._get_by_id(context, QoS, id), fields)
+                return self._create_qos_cn_dict(
+                    self._get_by_id(context, QoSCN, id), fields)
         except orm.exc.NotFound:
             raise QoSNotFound()
 
