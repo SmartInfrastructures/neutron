@@ -69,10 +69,10 @@ def upgrade(active_plugins=None, options=None):
         
     op.create_table(
         'qos_mapping',
-        sa.Column('id', sa.Integer, primary_key=True),
+#        sa.Column('id', sa.Integer, primary_key=True),
         sa.Column('port_id', sa.String(length=255)),
         sa.Column('qos_id', sa.String(length=255)),
-        sa.PrimaryKeyConstraint('id'),
+        #sa.PrimaryKeyConstraint('id'),
         sa.ForeignKeyConstraint(['qos_id'], ['qos_main.id']),
         sa.ForeignKeyConstraint(['port_id'],['ports.id']),
                     )

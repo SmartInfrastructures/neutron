@@ -293,27 +293,32 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         
         try:
             qos_database = self._create_qos_cn_dict(self._get_by_id(context, qosDb, qos_id), fields='policies')
+            
             ingress_rate = qos_database['policies'][constants.TYPE_QOS_INGRESS_RATE]
             egress_rate = qos_database['policies'][constants.TYPE_QOS_EGRESS_RATE]
             dscp = qos_database['policies'][constants.TYPE_QOS_DSCP]
             burst_percent = qos_database['policies'][constants.TYPE_QOS_BURST_RATE]
             
+            #ingress_rate = str(ingress_rate) + "+" + str(burst_percent)
+            #egress_rate = str(egress_rate) + "+" + str(burst_percent)
+            self.iface_client.update_rate_limit(original_port['id'], ingress_rate, constants.TYPE_QOS_INGRESS_RATE, burst_percent = burst_percent)
+            self.iface_client.update_rate_limit(original_port['id'], egress_rate, constants.TYPE_QOS_EGRESS_RATE, burst_percent = burst_percent)
+            self.iface_client.update_dscp(original_port['id'], dscp)
+            
         except Exception:
             return {}
         
-        self.iface_client.update_rate_limit(original_port['id'], ingress_rate, constants.TYPE_QOS_INGRESS_RATE, burst_percent = burst_percent)
-        self.iface_client.update_rate_limit(original_port['id'], egress_rate, constants.TYPE_QOS_EGRESS_RATE, burst_percent = burst_percent)
-        self.iface_client.update_dscp(original_port['id'], dscp)
+
 
         #####update rate limit
-        try:
-            if 'rate_limit' in port['port']:
-                self.iface_client.update_rate_limit(original_port['id'],port['port']['rate_limit'])
-            elif 'dscp' in port['port']:
-                self.iface_client.update_dscp(original_port['id'], port['port']['dscp'])
-        except KeyError:
-            print "key error"
-        except Exception:
-            print "generale exception"
+#         try:
+#             if 'rate_limit' in port['port']:
+#                 self.iface_client.update_rate_limit(original_port['id'],port['port']['rate_limit'])
+#             elif 'dscp' in port['port']:
+#                 self.iface_client.update_dscp(original_port['id'], port['port']['dscp'])
+#         except KeyError:
+#             print "key error"
+#         except Exception:
+#             print "generale exception"
         
         return updated_port

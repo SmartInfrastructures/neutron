@@ -83,7 +83,7 @@ class PolicyCN(model_base.BASEV2, models_v2.HasId):#, models_v2.HasTenant):
     burst_percent = sa.Column(sa.FLOAT(1,1), nullable=False)
 
 
-class QosMappingCN(model_base.BASEV2, models_v2.HasId):
+class QosMappingCN(model_base.BASEV2):#, models_v2.HasId):
     __tablename__ = 'qos_mapping'
     qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
                        ondelete='CASCADE'), nullable=False, primary_key=True)
@@ -319,5 +319,5 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
             raise ext_qos.QoSValidationError()
     
     def validate_policy_burst_percent(self, burst_percent):
-        if burst_percent > 1 or burst_percent < 0:
+        if float(burst_percent) > 1 or float(burst_percent) < 0:
             raise ext_qos.QoSValidationError()
