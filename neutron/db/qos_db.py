@@ -198,15 +198,18 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
         return db.qos_id
 
     def create_qos_for_port(self, context, qos_id, port_id):
-#         class QosMappingCN(model_base.BASEV2):
-#     qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
-#                        ondelete='CASCADE'), nullable=False, primary_key=True)
-#     port_id = sa.Column(sa.String(36), sa.ForeignKey('ports.id',
-#                        ondelete='CASCADE'), nullable=False, primary_key=True)
-        with context.session.begin(subtransactions=True):
-            #db = PortQoSMapping(qos_id=qos_id, port_id=port_id)
-            db = QosMappingCN(qos_id=qos_id, port_id=port_id)
-            context.session.add(db)
+
+        try:
+            query = self._model_query(context, QosMappingCN)
+            db = query.filter(QosMappingCN.port_id == port_id).one()
+        except: # add new mapping
+            with context.session.begin(subtransactions=True):
+                db = QosMappingCN(qos_id=qos_id, port_id=port_id)
+                context.session.add(db)
+                return db.qos_id
+        
+        qos_to_update = {'qos_id': qos_id}
+        db.update(qos_to_update)
         return db.qos_id
 
     def delete_qos(self, context, id):
