@@ -122,7 +122,18 @@ class PortQoSMapping(model_base.BASEV2):
 
 
 class QoSDbMixin(ext_qos.QoSPluginBase):
-
+    
+    # return True if default is not present
+    # return False if default is already present
+    def _is_default_present(self, default, context):
+        try:
+            query = self._model_query(context, QoSCN)
+            db = query.filter(QoSCN.default == 1).one()
+        except:
+            return False
+        
+        return True
+        
     def _create_qos_dict(self, qos, fields=None):
         res = {'id': qos['id'],
                'tenant_id': qos['tenant_id'],
@@ -152,6 +163,11 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
             context.session.delete(item)
 
     def create_qos(self, context, qos):
+        
+        if self._is_default_present( _convert_true_false(qos['qos']['default'] ), context ) and _convert_true_false(qos['qos']['default']):
+            raise ext_qos.QoSDefaultValue
+            return {}
+                               
         if 'policies' not in qos['qos']:
             raise ext_qos.QoSValidationError()
         else:

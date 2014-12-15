@@ -80,6 +80,9 @@ EXTENDED_ATTRIBUTES_2_0 = {
 class QoSValidationError(qexception.InvalidInput):
     message = _("Invalid QoS Policy")
 
+class QoSDefaultValue(qexception.Conflict):
+    message = _("Default already present. Impossible to add another default")
+
 
 class Qos(extensions.ExtensionDescriptor):
     """Quality of Service extension."""
