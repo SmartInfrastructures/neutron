@@ -91,6 +91,7 @@ class QosMappingCN(model_base.BASEV2):#, models_v2.HasId):
                        ondelete='CASCADE'), nullable=False, primary_key=True)
     
 class TenantAccessMappingCN(model_base.BASEV2, models_v2.HasTenant):
+    __tablename__ = "qos_tenant_access"
     qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
                        ondelete='CASCADE'), nullable=False, primary_key=True)
 
@@ -157,11 +158,18 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
             for pol in list_avaible_policy:
                 res['policies'][pol] = item[pol]
         return self._fields(res, fields)
+    
+    def _create_qos_tenant_mapping(self, item, fields=None):
+        res = {
+               'tenant_id': item['tenant_id'],
+               'qos_id': item['qos_id'],
+               }
+        return self._fields(res, fields)
 
     def _db_delete(self, context, item):
         with context.session.begin(subtransactions=True):
             context.session.delete(item)
-
+        
     def create_qos(self, context, qos):
         
         if self._is_default_present( _convert_true_false(qos['qos']['default'] ), context ) and _convert_true_false(qos['qos']['default']):
@@ -206,6 +214,33 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
             context.session.add(qos_db_item)
         #return self._create_qos_dict(qos_db_item)
         return self._create_qos_cn_dict(qos_db_item)
+#     class TenantAccessMappingCN(model_base.BASEV2, models_v2.HasTenant):
+#     qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
+#                        ondelete='CASCADE'), nullable=False, primary_key=True)
+    def update_qos(self, context, id, qos):
+        try: 
+            tenant = qos['qos']['tenant']
+            qos_associate_item = TenantAccessMappingCN(qos_id = id, tenant_id = tenant)
+            context.session.add(qos_associate_item)
+            return self._create_qos_tenant_mapping(qos_associate_item)
+        except Exception:
+            pass
+        try:
+            policies = qos['qos']['policies']
+            print "policies present for updating"
+        except Exception:
+            pass
+        
+
+        db = self._get_by_id(context, QoS, id)
+        with context.session.begin(subtransactions=True):
+            db.policies = []
+            for k, v in qos['qos']['policies'].iteritems():
+                db.policies.append(
+                    QoSPolicy(qos_id=db, key=k, value=v))
+            del qos['qos']['policies']
+            db.update(qos)
+        return self._create_qos_dict(db)
 
     def create_qos_for_network(self, context, qos_id, network_id):
         with context.session.begin(subtransactions=True):
@@ -297,18 +332,6 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
         db = self.get_mapping_for_port(context, mapping.port_id)[0]
         with context.session.begin(subtransactions=True):
             db.update(mapping)
-
-    def update_qos(self, context, id, qos):
-        self.validate_qos(qos)
-        db = self._get_by_id(context, QoS, id)
-        with context.session.begin(subtransactions=True):
-            db.policies = []
-            for k, v in qos['qos']['policies'].iteritems():
-                db.policies.append(
-                    QoSPolicy(qos_id=db, key=k, value=v))
-            del qos['qos']['policies']
-            db.update(qos)
-        return self._create_qos_dict(db)
 
     def validate_qos(self, policy):
         for type in policy:

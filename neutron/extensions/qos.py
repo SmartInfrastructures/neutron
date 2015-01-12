@@ -37,10 +37,6 @@ RESOURCE_ATTRIBUTE_MAP = {
         'policies': {'allow_post': True, 'allow_put': True,
                      'is_visible': True, 'default': '',
                      'validate': {'type:dict': None}},
-   #     'type': {'allow_post': True, 'allow_put': True,
-   #              'is_visible': True, 'default': '',
-   #              'validate': {'type:values': [constants.TYPE_QOS_DSCP,
-   #                                           constants.TYPE_QOS_RATELIMIT]}}
         'description': {'allow_post': True, 'allow_put': True,
                         'is_visible': True, 'default': '',
                         'validate': {'type:string': None}},
@@ -58,7 +54,20 @@ RESOURCE_ATTRIBUTE_MAP = {
         
         'name': {'allow_post': True, 'allow_put': True,
                'is_visible': True},
+        
+        'tenant': {'allow_post': False, 'allow_put': True,
+                   #'validate': {'type:uuid': None},
+                   'default': ''},
     },
+                          
+    'qos-associate':{
+         'associate': {'allow_post': True, 'allow_put': True,
+               'validate': {'type:string': None},
+               'is_visible': True},
+        'qos_id': {'allow_post': True, 'allow_put': True,
+               'validate': {'type:string': None},
+               'is_visible': True},
+                     },
 }
 
 QOS = "qos"

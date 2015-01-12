@@ -113,7 +113,7 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
                                     "extraroute", "security-group",
                                     "binding", "quotas",
                                     "quality-of-service"] #[qos]
-
+       
     @property
     def supported_extension_aliases(self):
         if not hasattr(self, '_aliases'):
@@ -257,6 +257,7 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         # now that we've left db transaction, we are safe to notify
         self.notify_routers_updated(context, router_ids)
         self.notify_security_groups_member_updated(context, port)
+        
 
     def update_port(self, context, id, port):
         deleted = port['port'].get('deleted', False)

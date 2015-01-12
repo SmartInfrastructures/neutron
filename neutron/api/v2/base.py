@@ -656,8 +656,6 @@ class Controller(object):
     @staticmethod
     def _verify_attributes(res_dict, attr_info):
         extra_keys = set(res_dict.keys()) - set(attr_info.keys())
-        if extra_keys.__contains__('rate_limit') or extra_keys.__contains__('dscp'):
-            return
         if extra_keys:
             msg = _("Unrecognized attribute(s) '%s'") % ', '.join(extra_keys)
             raise webob.exc.HTTPBadRequest(msg)
