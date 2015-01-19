@@ -325,6 +325,13 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
                   marker=None, page_reverse=False, default_sg=False):
         marker_obj = self._get_marker_obj(context, 'qos', limit, marker)
 
+        # Get qos-list for tenant
+        if not filters.get("tenant_id") == None:
+            query = self._model_query(context, TenantAccessMappingCN)
+            db_tenant_access = query.filter(TenantAccessMappingCN.tenant_id == str(filters.get("tenant_id")[0]) )
+            filters["id"] = []
+            for i in db_tenant_access:
+                filters["id"].append( i.get("qos_id") )
         return self._get_collection(context,
                                     QoSCN,
                                     self._create_qos_cn_dict,
