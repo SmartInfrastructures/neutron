@@ -215,15 +215,11 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
             context.session.add(qos_db_item)
         #return self._create_qos_dict(qos_db_item)
         return self._create_qos_cn_dict(qos_db_item)
-#     class TenantAccessMappingCN(model_base.BASEV2, models_v2.HasTenant):
-#     qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
-#                        ondelete='CASCADE'), nullable=False, primary_key=True)
+
+
     def update_qos(self, context, id, qos):
         try: 
             tenant = qos['qos']['tenant']
-#             query = self._model_query(context, QoSCN)
-#             db = query.filter(QoSCN.default == 1).one()
-            
             # Check if tenant exist
             query = self._model_query(context, TenantAccessMappingCN)
             db_tenant_access = query.filter(TenantAccessMappingCN.qos_id == id, TenantAccessMappingCN.tenant_id == tenant)
@@ -239,18 +235,35 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
         try:
             policies = qos['qos']['policies']
             print "policies present for updating"
+            kwargs = {}
+            if constants.TYPE_QOS_DSCP in qos['qos']['policies']:
+                _dscp = qos['qos']['policies'][constants.TYPE_QOS_DSCP]
+                kwargs[constants.TYPE_QOS_DSCP] = _dscp
+            if constants.TYPE_QOS_EGRESS_RATE in qos['qos']['policies']:
+                _egress_rate = qos['qos']['policies'][constants.TYPE_QOS_EGRESS_RATE]
+                kwargs[constants.TYPE_QOS_EGRESS_RATE] = _egress_rate
+            if constants.TYPE_QOS_INGRESS_RATE in qos['qos']['policies']:
+                _ingress_rate = qos['qos']['policies'][constants.TYPE_QOS_INGRESS_RATE]
+                kwargs[constants.TYPE_QOS_INGRESS_RATE] = _ingress_rate
+            if constants.TYPE_QOS_BURST_RATE in qos['qos']['policies']:
+                _burst_percent = qos['qos']['policies'][constants.TYPE_QOS_BURST_RATE]
+                kwargs[constants.TYPE_QOS_BURST_RATE] = _burst_percent
+            
+            db = self._model_query(context, PolicyCN).filter(PolicyCN.qos_id == id)
+            db.update(kwargs)
         except Exception:
             pass
         
-        db = self._get_by_id(context, QoS, id)
-        with context.session.begin(subtransactions=True):
-            db.policies = []
-            for k, v in qos['qos']['policies'].iteritems():
-                db.policies.append(
-                    QoSPolicy(qos_id=db, key=k, value=v))
-            del qos['qos']['policies']
-            db.update(qos)
-        return self._create_qos_dict(db)
+#         db = self._get_by_id(context, QoSCN, id)
+#         with context.session.begin(subtransactions=True):
+#             db.policies = []
+#             for k, v in qos['qos']['policies'].iteritems():
+#                 db.policies.append(
+#                     QoSPolicy(qos_id=db, key=k, value=v))
+#             del qos['qos']['policies']
+#             db.update(qos)
+        db_item = self._get_by_id(context, QoSCN, id)
+        return self._create_qos_cn_dict(db_item)
 
     def create_qos_for_network(self, context, qos_id, network_id):
         with context.session.begin(subtransactions=True):
