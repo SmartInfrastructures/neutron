@@ -79,10 +79,10 @@ def upgrade(active_plugins=None, options=None):
     
     op.create_table(
         'qos_tenant_access',
-        sa.Column('id', sa.Integer, primary_key=True),
-        sa.Column('qos_id', sa.String(length=255)),
+#        sa.Column('id', sa.Integer, primary_key=True),
+        sa.Column('qos_id', sa.String(length=255), nullable=False),
         sa.Column('tenant_id', sa.String(length=255), nullable=False),
-        sa.PrimaryKeyConstraint('id'),
+#        sa.PrimaryKeyConstraint('id'),
         sa.ForeignKeyConstraint(['qos_id'], ['qos_main.id']),
                     )
 

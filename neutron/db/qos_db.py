@@ -82,14 +82,15 @@ class PolicyCN(model_base.BASEV2, models_v2.HasId):#, models_v2.HasTenant):
     egress_rate = sa.Column(sa.Integer, nullable=False)
     burst_percent = sa.Column(sa.FLOAT(1,1), nullable=False)
 
-
+# Association between port and qos
 class QosMappingCN(model_base.BASEV2):#, models_v2.HasId):
     __tablename__ = 'qos_mapping'
     qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
                        ondelete='CASCADE'), nullable=False, primary_key=True)
     port_id = sa.Column(sa.String(36), sa.ForeignKey('ports.id',
                        ondelete='CASCADE'), nullable=False, primary_key=True)
-    
+
+# Association between tenant and qos
 class TenantAccessMappingCN(model_base.BASEV2, models_v2.HasTenant):
     __tablename__ = "qos_tenant_access"
     qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
@@ -220,18 +221,27 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
     def update_qos(self, context, id, qos):
         try: 
             tenant = qos['qos']['tenant']
-            qos_associate_item = TenantAccessMappingCN(qos_id = id, tenant_id = tenant)
-            context.session.add(qos_associate_item)
-            return self._create_qos_tenant_mapping(qos_associate_item)
+#             query = self._model_query(context, QoSCN)
+#             db = query.filter(QoSCN.default == 1).one()
+            
+            # Check if tenant exist
+            query = self._model_query(context, TenantAccessMappingCN)
+            db_tenant_access = query.filter(TenantAccessMappingCN.qos_id == id, TenantAccessMappingCN.tenant_id == tenant)
+            if db_tenant_access.count() == 0:
+                qos_associate_item = TenantAccessMappingCN(qos_id = id, tenant_id = tenant)
+                context.session.add(qos_associate_item)
+                return self._create_qos_tenant_mapping(qos_associate_item)
+            else:
+                return {}
         except Exception:
             pass
+        
         try:
             policies = qos['qos']['policies']
             print "policies present for updating"
         except Exception:
             pass
         
-
         db = self._get_by_id(context, QoS, id)
         with context.session.begin(subtransactions=True):
             db.policies = []
