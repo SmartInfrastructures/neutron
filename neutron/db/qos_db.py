@@ -22,6 +22,8 @@ from neutron.db import model_base
 from neutron.db import models_v2
 from neutron.extensions import qos as ext_qos
 
+from neutron.context import Context
+
 import sqlalchemy as sa
 from sqlalchemy import orm
 
@@ -41,6 +43,9 @@ class QoSNetworkMappingNotFound(exceptions.NotFound):
     message = _("QoS mapping for network %(net_id)s"
                 "and QoS %(qos_id)s could not be found")
     
+class AssociationNotPossible(exceptions.NotFound):
+    message = _("QoS %(qos_id)s could not be associate because it is public")
+    
 def _convert_true_false(value):
     if value.encode('UTF-8').lower() == 'true':
         return 1    
@@ -59,14 +64,15 @@ class QoS(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):
     networks = orm.relationship('NetworkQoSMapping',
                                 cascade='all, delete, delete-orphan')
     
-class QoSCN(model_base.BASEV2, models_v2.HasId): #, models_v2.HasTenant):
+class QoSCN(model_base.BASEV2, models_v2.HasId, models_v2.HasTenant):
     __tablename__ = 'qos_main'
     name = sa.Column(sa.String(255), nullable=False)
     default = sa.Column(sa.Boolean, nullable=False)
-    visible = sa.Column(sa.Boolean, nullable=False)
+    shared = sa.Column(sa.Boolean, nullable=False)
     description = sa.Column(sa.String(255), nullable=True)
     policies = orm.relationship('PolicyCN',
                                 cascade='all, delete, delete-orphan')
+    public = sa.Column(sa.Boolean, nullable=False)
     #mapping = orm.relationship('PolicyCN',
     #                            cascade='all, delete, delete-orphan')
     
@@ -95,6 +101,7 @@ class TenantAccessMappingCN(model_base.BASEV2, models_v2.HasTenant):
     __tablename__ = "qos_tenant_access"
     qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
                        ondelete='CASCADE'), nullable=False, primary_key=True)
+    shared = sa.Column(sa.Boolean, nullable=False)
 
 
 class QoSPolicy(model_base.BASEV2, models_v2.HasId):
@@ -148,10 +155,10 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
     
     def _create_qos_cn_dict(self, qos, fields=None):
         res = {'id': qos['id'],
-               #'tenant_id': qos['tenant_id'],
+               'tenant_id': qos['tenant_id'],
                'description': qos['description'],
                'default': qos['default'],
-               'visible': qos['visible'],
+               'shared': qos['shared'],
                'name':qos['name'],
                'policies': {}
                }
@@ -172,6 +179,9 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
             context.session.delete(item)
         
     def create_qos(self, context, qos):
+        if not context.is_admin:
+            raise exceptions.AdminRequired(reason=_("Only admin can create and modify qos"))
+            return {}
         
         if self._is_default_present( _convert_true_false(qos['qos']['default'] ), context ) and _convert_true_false(qos['qos']['default']):
             raise ext_qos.QoSDefaultValue
@@ -188,7 +198,9 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
             qos_db_item = QoSCN( description = qos['qos']['description'],
                                  name = qos['qos']['name'],
                                  default = _convert_true_false(qos['qos']['default']),
-                                 visible = _convert_true_false(qos['qos']['visible'])
+                                 shared = 1,
+                                 tenant_id=context.tenant_id,
+                                 public = _convert_true_false(qos['qos']['public'])
                                  )
             if constants.TYPE_QOS_DSCP in qos['qos']['policies']:
                 _dscp = qos['qos']['policies'][constants.TYPE_QOS_DSCP]
@@ -218,21 +230,40 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
 
 
     def update_qos(self, context, id, qos):
-        try: 
+        if not context.is_admin:
+            raise exceptions.AdminRequired(reason=_("Only admin can create and modify qos"))
+            return {}
+        try:
             tenant = qos['qos']['tenant']
             # Check if tenant exist
             query = self._model_query(context, TenantAccessMappingCN)
             db_tenant_access = query.filter(TenantAccessMappingCN.qos_id == id, TenantAccessMappingCN.tenant_id == tenant)
-            if db_tenant_access.count() == 0:
-                qos_associate_item = TenantAccessMappingCN(qos_id = id, tenant_id = tenant)
+            
+            # Add qos to tenant_access table if the relation is not present
+            # and if qos rule is not public.
+            public = True
+            try:
+                self._model_query(context, QoSCN).filter(QoSCN.public == 0, QoSCN.id == id)[0]
+                public = False
+            except Exception:
+                public = True
+            
+            if db_tenant_access.count() == 0 and not public:
+                qos_associate_item = TenantAccessMappingCN(qos_id = id, tenant_id = tenant, shared=1)
                 context.session.add(qos_associate_item)
                 return self._create_qos_tenant_mapping(qos_associate_item)
             else:
+                raise exceptions.AdminRequired(reason=_("Cambia messaggio di errore"))
                 return {}
         except Exception:
             pass
         
         try:
+            main_arg = {}
+            if qos['qos']['shared']:
+                db = self._model_query(context, QoSCN).filter(QoSCN.id == id)
+                main_arg['shared'] = _convert_true_false(qos['qos']['shared'])
+                db.update(main_arg)
             policies = qos['qos']['policies']
             print "policies present for updating"
             kwargs = {}
@@ -272,7 +303,7 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
         return db.qos_id
 
     def create_qos_for_port(self, context, qos_id, port_id):
-
+        
         try:
             query = self._model_query(context, QosMappingCN)
             db = query.filter(QosMappingCN.port_id == port_id).one()
@@ -327,25 +358,46 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
 
     def get_qos(self, context, id, fields=None):
         try:
-            with context.session.begin(subtransactions=True):
-                return self._create_qos_cn_dict(
-                    self._get_by_id(context, QoSCN, id), fields)
-        except orm.exc.NotFound:
+            query = self._model_query(context, QoSCN).filter(QoSCN.id == id)[0]
+            return self._create_qos_cn_dict(query, fields)
+        except Exception:
             raise QoSNotFound()
 
     def get_qoses(self, context, filters=None, fields=None,
                   sorts=None, limit=None,
                   marker=None, page_reverse=False, default_sg=False):
         marker_obj = self._get_marker_obj(context, 'qos', limit, marker)
-
-        # Get qos-list for tenant
-        if not filters.get("tenant_id") == None:
-            query = self._model_query(context, TenantAccessMappingCN)
-            db_tenant_access = query.filter(TenantAccessMappingCN.tenant_id == str(filters.get("tenant_id")[0]) )
-            filters["id"] = []
-            for i in db_tenant_access:
-                filters["id"].append( i.get("qos_id") )
-        return self._get_collection(context,
+        
+        if not context.is_admin:
+            #1 filter: public=1
+            filters["public"] = [1]
+            public_qos = self._get_collection(context,
+                                    QoSCN,
+                                    self._create_qos_cn_dict,
+                                    filters=filters, fields=fields,
+                                    sorts=sorts,
+                                    limit=limit, marker_obj=marker_obj,
+                                    page_reverse=page_reverse)
+            del filters["public"]
+            
+            #2filter: qos_id in TenantAccessMappingCN (qos_tenant_access)
+            db_tenant_access = self._model_query(context, TenantAccessMappingCN).filter(TenantAccessMappingCN.tenant_id == context.tenant_id )
+            filters["public"] = [0]
+            if "id" not in filters:
+                filters["id"] = []
+                for i in db_tenant_access:
+                    filters["id"].append( str(i.get("qos_id")) )
+            private_qos = self._get_collection(context,
+                                    QoSCN,
+                                    self._create_qos_cn_dict,
+                                    filters=filters, fields=fields,
+                                    sorts=sorts,
+                                    limit=limit, marker_obj=marker_obj,
+                                    page_reverse=page_reverse)
+                
+            return (private_qos + public_qos)
+        else:
+            return self._get_collection(context,
                                     QoSCN,
                                     self._create_qos_cn_dict,
                                     filters=filters, fields=fields,

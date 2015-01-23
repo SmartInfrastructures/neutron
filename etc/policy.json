@@ -134,7 +134,7 @@
     "create_lsn": "rule:admin_only",
     
     "create_qos": "",
-    "get_qos": "rule:admin_or_owner",
+    "get_qos": "",
     "update_qos": "rule:admin_or_owner",
     "delete_qos": "rule:admin_or_owner"
 }

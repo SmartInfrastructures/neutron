@@ -48,7 +48,7 @@ RESOURCE_ATTRIBUTE_MAP = {
                'validate': {'type:string': None},
                'is_visible': True},
             
-        'visible': {'allow_post': True, 'allow_put': True,
+        'public': {'allow_post': True, 'allow_put': True,
                'validate': {'type:string': None},
                'is_visible': True},
         

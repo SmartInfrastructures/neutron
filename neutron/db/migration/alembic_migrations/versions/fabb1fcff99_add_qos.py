@@ -48,7 +48,8 @@ def upgrade(active_plugins=None, options=None):
         #sa.Column('policy_id', sa.String(length=255), nullable=False),
         sa.Column('description', sa.String(length=255), nullable=False),
         sa.Column('name', sa.String(length=255), nullable=False),
-        sa.Column('visible', sa.Boolean, nullable=False),
+        sa.Column('shared', sa.Boolean, nullable=False),
+        sa.Column('public', sa.Boolean, nullable=False),
         sa.Column('default', sa.Boolean, nullable=False),
         sa.Column('tenant_id', sa.String(length=255), nullable=False),
         #sa.ForeignKeyConstraint(['policy_id'], ['qos_policy.id'], ondelete='CASCADE'),
@@ -84,6 +85,7 @@ def upgrade(active_plugins=None, options=None):
         sa.Column('tenant_id', sa.String(length=255), nullable=False),
 #        sa.PrimaryKeyConstraint('id'),
         sa.ForeignKeyConstraint(['qos_id'], ['qos_main.id']),
+        sa.Column('shared', sa.Boolean, nullable=False),
                     )
 
     pass
