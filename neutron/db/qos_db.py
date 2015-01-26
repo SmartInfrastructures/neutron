@@ -27,6 +27,8 @@ from neutron.context import Context
 import sqlalchemy as sa
 from sqlalchemy import orm
 
+import webob.exc
+
 list_avaible_policy = [constants.TYPE_QOS_BURST_RATE, constants.TYPE_QOS_DSCP,
                        constants.TYPE_QOS_EGRESS_RATE, constants.TYPE_QOS_INGRESS_RATE]
 
@@ -131,6 +133,31 @@ class PortQoSMapping(model_base.BASEV2):
 
 
 class QoSDbMixin(ext_qos.QoSPluginBase):
+    
+    # return list of avaible qoses for given tenant
+    def _list_qos_for_tenant(self, context, tenant_id=None):
+        qoses = []
+        if tenant_id == None:
+            tenant_id = context.tenant_id
+        
+        if context.is_admin:
+            qos_query =  self._model_query(context, QoSCN)
+            for qos in qos_query:
+                qoses.append(qos["id"])
+            return qoses
+        
+        #Public qos
+        public_qos = self._model_query(context, QoSCN).filter(QoSCN.public == 1)
+        for qos in public_qos:
+            qoses.append(qos["id"])
+        
+        #Qos Mapped in TenantAccessMappingCN
+        private_qos = self._model_query(context, TenantAccessMappingCN).filter(TenantAccessMappingCN.tenant_id == tenant_id )
+        for qos in private_qos:
+            if qos not in qoses:
+                qoses.append(qos)
+
+        return qoses
     
     # return True if default is not present
     # return False if default is already present
@@ -303,7 +330,10 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
         return db.qos_id
 
     def create_qos_for_port(self, context, qos_id, port_id):
-        
+        if qos_id not in self._list_qos_for_tenant(context):
+            msg = _("Error: Impossible to assign qos=%s to port=%s") % (qos_id, port_id)
+            raise webob.exc.HTTPBadRequest(msg)
+            return None
         try:
             query = self._model_query(context, QosMappingCN)
             db = query.filter(QosMappingCN.port_id == port_id).one()
