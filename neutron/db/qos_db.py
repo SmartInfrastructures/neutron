@@ -155,7 +155,7 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
         private_qos = self._model_query(context, TenantAccessMappingCN).filter(TenantAccessMappingCN.tenant_id == tenant_id )
         for qos in private_qos:
             if qos not in qoses:
-                qoses.append(qos)
+                qoses.append(qos["qos_id"])
 
         return qoses
     
@@ -349,7 +349,7 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
 
     def delete_qos(self, context, id):
         try:
-            self._db_delete(context, self._get_by_id(context, QoS, id))
+            self._db_delete(context, self._get_by_id(context, QoSCN, id))
         except orm.exc.NotFound:
             raise QoSNotFound()
 

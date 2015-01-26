@@ -63,18 +63,19 @@ class QoSServerRpcMixin(qos_db.QoSDbMixin):
         self.notifier.qos_updated(self, context, id)
         return result
 
-    def delete_qos(self, context, id):
-        qos_item = self._get_by_id(context, qos_db.QoS, id)
-        for port_mapping in qos_item.ports:
-            self.notifier.port_qos_deleted(context,
-                                           id,
-                                           port_mapping['port_id'])
-
-        for net_mapping in qos_item.networks:
-            self.notifier.network_qos_deleted(context,
-                                              id,
-                                              net_mapping['network_id'])
-        super(QoSServerRpcMixin, self).delete_qos(context, id)
+#     def delete_qos(self, context, id):
+#         qos_item = self._get_by_id(context, qos_db.QoSCN, id)
+#         self.notifier.qos_delete(context, id)
+#         for port_mapping in qos_item.ports:
+#             self.notifier.port_qos_deleted(context,
+#                                            id,
+#                                            port_mapping['port_id'])
+# 
+#         for net_mapping in qos_item.networks:
+#             self.notifier.network_qos_deleted(context,
+#                                               id,
+#                                               net_mapping['network_id'])
+#         super(QoSServerRpcMixin, self).delete_qos(context, id)
         
 
 
