@@ -55,13 +55,13 @@ class QoSServerRpcMixin(qos_db.QoSDbMixin):
                                        mapping.qos_id,
                                        mapping.port_id)
 
-    def update_qos(self, context, id, qos):
-        result = super(QoSServerRpcMixin, self).update_qos(context,
-                                                           id,
-                                                           qos)
-        qos_item = self._get_by_id(context, qos_db.QoSCN, id)
-        self.notifier.qos_updated(self, context, id)
-        return result
+#     def update_qos(self, context, id, qos):
+#         result = super(QoSServerRpcMixin, self).update_qos(context,
+#                                                            id,
+#                                                            qos)
+#         qos_item = self._get_by_id(context, qos_db.QoSCN, id)
+#         self.notifier.qos_updated(self, context, id)
+#         return result
 
 #     def delete_qos(self, context, id):
 #         qos_item = self._get_by_id(context, qos_db.QoSCN, id)

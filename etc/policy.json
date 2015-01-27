@@ -135,6 +135,7 @@
     
     "create_qos": "rule:admin_or_owner",
     "get_qos": "",
+    "get_qosassociate": "rule:admin_only",
     "update_qos": "rule:admin_or_owner",
     "delete_qos": "rule:admin_or_owner"
 }

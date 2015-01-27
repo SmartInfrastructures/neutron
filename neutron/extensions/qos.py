@@ -58,15 +58,22 @@ RESOURCE_ATTRIBUTE_MAP = {
         'tenant': {'allow_post': False, 'allow_put': True,
                    #'validate': {'type:uuid': None},
                    'default': ''},
+        'association': {'allow_post': False, 'allow_put': True,
+                   #'validate': {'type:value': ["associate", "disassociate"]},
+                   'validate': {'type:string': None},
+                   'default': ''},
     },
                           
-    'qos-associate':{
-         'associate': {'allow_post': True, 'allow_put': True,
+    'qosassociate':{
+        'associate': {'allow_post': True, 'allow_put': True,
                'validate': {'type:string': None},
                'is_visible': True},
         'qos_id': {'allow_post': True, 'allow_put': True,
                'validate': {'type:string': None},
                'is_visible': True},
+        'tenant_id': {'allow_post': False, 'allow_put': False,
+              'required_by_policy': True,
+              'is_visible': True},
                      },
 }
 
@@ -135,6 +142,18 @@ class Qos(extensions.ExtensionDescriptor):
                                           controller,
                                           attr_map=params)
         exts.append(ex)
+        ###
+        paramsTenantAccess = RESOURCE_ATTRIBUTE_MAP.get("qosassociate", dict())
+        controllerTenantAccess = base.create_resource("qosassociates",
+                                          "qosassociate",
+                                          plugin, paramsTenantAccess, allow_bulk=True,
+                                          allow_pagination=True,
+                                          allow_sorting=True)
+        exTenantAccess = extensions.ResourceExtension("qosassociates",
+                                                      controllerTenantAccess,
+                                                      attr_map=paramsTenantAccess)
+        exts.append(exTenantAccess)
+        
         return exts
 
     def get_extended_resources(self, version):
@@ -184,4 +203,10 @@ class QoSPluginBase(object):
 
     @abc.abstractmethod
     def validate_qos(self, context, qos):
+        pass
+    
+    @abc.abstractmethod
+    def get_qosassociates(self, context, filters=None, fields=None,
+                  sorts=None, limit=None, marker=None,
+                  page_reverse=False):
         pass

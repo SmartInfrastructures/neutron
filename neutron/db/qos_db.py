@@ -134,6 +134,23 @@ class PortQoSMapping(model_base.BASEV2):
 
 class QoSDbMixin(ext_qos.QoSPluginBase):
     
+    def get_qosassociates(self, context, filters=None, fields=None,
+                  sorts=None, limit=None, marker=None,
+                  page_reverse=False):
+        marker_obj = self._get_marker_obj(context, 'qosassociate', limit, marker)
+        
+        if not context.is_admin:
+            raise exceptions.AdminRequired(reason=_("Only admin can get qos-tenant-list"))
+            return {}
+        
+        return self._get_collection(context,
+                        TenantAccessMappingCN,
+                        self._create_qos_tenant_mapping,
+                        filters=filters, fields=fields,
+                        sorts=sorts,
+                        limit=limit, marker_obj=marker_obj,
+                        page_reverse=page_reverse)
+    
     # return list of avaible qoses for given tenant
     def _list_qos_for_tenant(self, context, tenant_id=None):
         qoses = []
@@ -200,6 +217,15 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
                'qos_id': item['qos_id'],
                }
         return self._fields(res, fields)
+    
+    def _update_qos_rule(self, context, id, qos):
+        pass
+    
+    def _associate_qos(self):
+        pass
+    
+    def _disassociate_qos(self):
+        pass
 
     def _db_delete(self, context, item):
         with context.session.begin(subtransactions=True):
