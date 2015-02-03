@@ -32,6 +32,10 @@ import webob.exc
 list_avaible_policy = [constants.TYPE_QOS_BURST_RATE, constants.TYPE_QOS_DSCP,
                        constants.TYPE_QOS_EGRESS_RATE, constants.TYPE_QOS_INGRESS_RATE]
 
+
+class QoSError(exceptions.NeutronException):
+    message = _("Error in QOS: %(reason)s")
+     
 class QoSNotFound(exceptions.NotFound):
     message = _("QoS %(qos_id)s could not be found")
 
@@ -99,10 +103,10 @@ class QosMappingCN(model_base.BASEV2):#, models_v2.HasId):
                        ondelete='CASCADE'), nullable=False, primary_key=True)
 
 # Association between tenant and qos
-class TenantAccessMappingCN(model_base.BASEV2, models_v2.HasTenant):
+class TenantAccessMappingCN(model_base.BASEV2, models_v2.HasTenant, models_v2.HasId):
     __tablename__ = "qos_tenant_access"
     qos_id = sa.Column(sa.String(36), sa.ForeignKey('qos_main.id',
-                       ondelete='CASCADE'), nullable=False, primary_key=True)
+                       ondelete='CASCADE'), nullable=False)
     shared = sa.Column(sa.Boolean, nullable=False)
 
 
@@ -133,23 +137,6 @@ class PortQoSMapping(model_base.BASEV2):
 
 
 class QoSDbMixin(ext_qos.QoSPluginBase):
-    
-    def get_qosassociates(self, context, filters=None, fields=None,
-                  sorts=None, limit=None, marker=None,
-                  page_reverse=False):
-        marker_obj = self._get_marker_obj(context, 'qosassociate', limit, marker)
-        
-        if not context.is_admin:
-            raise exceptions.AdminRequired(reason=_("Only admin can get qos-tenant-list"))
-            return {}
-        
-        return self._get_collection(context,
-                        TenantAccessMappingCN,
-                        self._create_qos_tenant_mapping,
-                        filters=filters, fields=fields,
-                        sorts=sorts,
-                        limit=limit, marker_obj=marker_obj,
-                        page_reverse=page_reverse)
     
     # return list of avaible qoses for given tenant
     def _list_qos_for_tenant(self, context, tenant_id=None):
@@ -253,7 +240,7 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
                                  default = _convert_true_false(qos['qos']['default']),
                                  shared = 1,
                                  tenant_id=context.tenant_id,
-                                 public = _convert_true_false(qos['qos']['public'])
+                                 public = 1 if _convert_true_false(qos['qos']['default']) else _convert_true_false(qos['qos']['public'])
                                  )
             if constants.TYPE_QOS_DSCP in qos['qos']['policies']:
                 _dscp = qos['qos']['policies'][constants.TYPE_QOS_DSCP]
@@ -292,22 +279,29 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
             query = self._model_query(context, TenantAccessMappingCN)
             db_tenant_access = query.filter(TenantAccessMappingCN.qos_id == id, TenantAccessMappingCN.tenant_id == tenant)
             
-            # Add qos to tenant_access table if the relation is not present
-            # and if qos rule is not public.
-            public = True
-            try:
-                self._model_query(context, QoSCN).filter(QoSCN.public == 0, QoSCN.id == id)[0]
-                public = False
-            except Exception:
+            if qos['qos']['association'] == "associate":
+                # Add qos to tenant_access table if the relation is not present
+                # and if qos rule is not public.
                 public = True
-            
-            if db_tenant_access.count() == 0 and not public:
-                qos_associate_item = TenantAccessMappingCN(qos_id = id, tenant_id = tenant, shared=1)
-                context.session.add(qos_associate_item)
-                return self._create_qos_tenant_mapping(qos_associate_item)
+                try:
+                    self._model_query(context, QoSCN).filter(QoSCN.public == 0, QoSCN.id == id)[0]
+                    public = False
+                except Exception:
+                    public = True
+                
+                if db_tenant_access.count() == 0 and not public:
+                    qos_associate_item = TenantAccessMappingCN(qos_id = id, tenant_id = tenant)
+                    context.session.add(qos_associate_item)
+                    return self._create_qos_tenant_mapping(qos_associate_item)
+                else:
+                    raise exceptions.AdminRequired(reason=_("Cambia messaggio di errore"))
+                    return {}
+            elif qos['qos']['association'] == "disassociate":
+                context.session.delete(db_tenant_access)
+                #self._db_delete(context, db_tenant_access )
+                return {"Correctly removed"}
             else:
-                raise exceptions.AdminRequired(reason=_("Cambia messaggio di errore"))
-                return {}
+                raise QoSError(reason=_("Malformed request"))
         except Exception:
             pass
         
@@ -460,6 +454,23 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
                                     sorts=sorts,
                                     limit=limit, marker_obj=marker_obj,
                                     page_reverse=page_reverse)
+
+    def get_qosassociates(self, context, filters=None, fields=None,
+                  sorts=None, limit=None, marker=None,
+                  page_reverse=False):
+        marker_obj = self._get_marker_obj(context, 'qosassociate', limit, marker)
+        
+        if not context.is_admin:
+            raise exceptions.AdminRequired(reason=_("Only admin can get qos-tenant-list"))
+            return {}
+        
+        return self._get_collection(context,
+                        TenantAccessMappingCN,
+                        self._create_qos_tenant_mapping,
+                        filters=filters, fields=fields,
+                        sorts=sorts,
+                        limit=limit, marker_obj=marker_obj,
+                        page_reverse=page_reverse)
 
     def update_mapping_for_network(self, context, mapping):
         db = self.get_mapping_for_network(context, mapping.network_id)[0]

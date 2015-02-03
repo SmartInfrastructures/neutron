@@ -74,18 +74,18 @@ def upgrade(active_plugins=None, options=None):
         sa.Column('port_id', sa.String(length=255)),
         sa.Column('qos_id', sa.String(length=255)),
         #sa.PrimaryKeyConstraint('id'),
-        sa.ForeignKeyConstraint(['qos_id'], ['qos_main.id']),
-        sa.ForeignKeyConstraint(['port_id'],['ports.id']),
+        sa.ForeignKeyConstraint(['qos_id'], ['qos_main.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['port_id'],['ports.id'], ondelete='CASCADE'),
                     )
     
     op.create_table(
         'qos_tenant_access',
-#        sa.Column('id', sa.Integer, primary_key=True),
-        sa.Column('qos_id', sa.String(length=255), nullable=False),
-        sa.Column('tenant_id', sa.String(length=255), nullable=False),
-#        sa.PrimaryKeyConstraint('id'),
-        sa.ForeignKeyConstraint(['qos_id'], ['qos_main.id']),
-        sa.Column('shared', sa.Boolean, nullable=False),
+        sa.Column('id', sa.String(length=36), primary_key=True),
+        sa.Column('qos_id', sa.String(length=255)),
+        sa.Column('tenant_id', sa.String(length=255)),
+        sa.Column('shared', sa.Boolean),
+        sa.ForeignKeyConstraint(['qos_id'], ['qos_main.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
                     )
 
     pass
@@ -98,5 +98,6 @@ def downgrade(active_plugins=None, options=None):
     op.drop_table('qos_main')
     op.drop_table('qos_policy')
     op.drop_table('qos_mapping')
+#    op.drop_table('qos_tenant_access')
 
     pass
