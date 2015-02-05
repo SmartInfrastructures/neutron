@@ -265,10 +265,11 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
 
             qos_db_item.policies.append(policy_db_item)
             context.session.add(qos_db_item)
+            
         #return self._create_qos_dict(qos_db_item)
         return self._create_qos_cn_dict(qos_db_item)
 
-
+    
     def update_qos(self, context, id, qos):
         if not context.is_admin:
             raise exceptions.AdminRequired(reason=_("Only admin can create and modify qos"))
@@ -290,14 +291,16 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
                     public = True
                 
                 if db_tenant_access.count() == 0 and not public:
-                    qos_associate_item = TenantAccessMappingCN(qos_id = id, tenant_id = tenant)
+                    qos_associate_item = TenantAccessMappingCN(qos_id = id, tenant_id = tenant, shared = True)
                     context.session.add(qos_associate_item)
+                    context.session.commit()
                     return self._create_qos_tenant_mapping(qos_associate_item)
                 else:
                     raise exceptions.AdminRequired(reason=_("Cambia messaggio di errore"))
                     return {}
             elif qos['qos']['association'] == "disassociate":
-                context.session.delete(db_tenant_access)
+                context.session.delete(db_tenant_access[0])
+                context.session.commit()
                 #self._db_delete(context, db_tenant_access )
                 return {"Correctly removed"}
             else:
