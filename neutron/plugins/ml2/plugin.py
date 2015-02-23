@@ -55,6 +55,10 @@ from neutron.plugins.ml2 import managers
 from neutron.plugins.ml2 import models
 from neutron.plugins.ml2 import rpc
 
+#[qos]
+from neutron.db import qos_rpc_base as qos_db_rpc
+from neutron.extensions import qos
+
 LOG = log.getLogger(__name__)
 
 # REVISIT(rkukura): Move this and other network_type constants to
@@ -67,7 +71,8 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                 sg_db_rpc.SecurityGroupServerRpcMixin,
                 agentschedulers_db.DhcpAgentSchedulerDbMixin,
                 addr_pair_db.AllowedAddressPairsMixin,
-                extradhcpopt_db.ExtraDhcpOptMixin):
+                extradhcpopt_db.ExtraDhcpOptMixin,
+                qos_db_rpc.QoSServerRpcMixin):
 
     """Implement the Neutron L2 abstractions using modules.
 
@@ -90,7 +95,7 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                                     "quotas", "security-group", "agent",
                                     "dhcp_agent_scheduler",
                                     "multi-provider", "allowed-address-pairs",
-                                    "extra_dhcp_opt"]
+                                    "extra_dhcp_opt", "quality-of-service"]
 
     @property
     def supported_extension_aliases(self):

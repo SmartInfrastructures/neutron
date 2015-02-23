@@ -28,7 +28,8 @@ down_revision = 'icehouse'
 # Change to ['*'] if this migration applies to all plugins
 
 migration_for_plugins = [
-    'neutron.plugins.ryu.ryu_neutron_plugin.RyuNeutronPluginV2'
+    'neutron.plugins.ml2.plugin.Ml2Plugin'
+    #'neutron.plugins.ryu.ryu_neutron_plugin.RyuNeutronPluginV2'
 ]
 
 from alembic import op

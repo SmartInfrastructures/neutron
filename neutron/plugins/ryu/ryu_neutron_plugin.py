@@ -50,8 +50,9 @@ from neutron.db import qos_rpc_base as qos_db_rpc
 from neutron.extensions import qos as qosExt
 from neutron.services.qos.agents import qos_rpc as qos_rpc
 from boto.sqs.attributes import Attributes
-from neutron.db.qos_db import QoSCN as qosDb
+from neutron.db.qos_db import QoSCN as qosDb, PolicyCN
 from neutron.common import constants
+from neutron.db.qos_db import QoSCN, QoSPolicy
 
 LOG = logging.getLogger(__name__)
 
@@ -239,6 +240,22 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
                 context, port, sgids)
         self.notify_security_groups_member_updated(context, port)
         self.iface_client.create_network_id(port['id'], port['network_id'])
+        
+        # Add default qos rule
+        try:
+            qos_database =self._create_qos_cn_dict(self._model_query(context, QoSCN).filter(QoSCN.default == 1)[0], fields='policies') 
+            
+            ingress_rate = qos_database['policies'][constants.TYPE_QOS_INGRESS_RATE]
+            egress_rate = qos_database['policies'][constants.TYPE_QOS_EGRESS_RATE]
+            dscp = qos_database['policies'][constants.TYPE_QOS_DSCP]
+            burst_percent = qos_database['policies'][constants.TYPE_QOS_BURST_RATE]
+ 
+#             self.iface_client.update_rate_limit(port['id'], ingress_rate, constants.TYPE_QOS_INGRESS_RATE, burst_percent = burst_percent)
+#             self.iface_client.update_rate_limit(port['id'], egress_rate, constants.TYPE_QOS_EGRESS_RATE, burst_percent = burst_percent)
+#             self.iface_client.update_dscp(port['id'], dscp)
+        except Exception:
+            return {}
+        
         return port
 
     def delete_port(self, context, id, l3_port_check=True):

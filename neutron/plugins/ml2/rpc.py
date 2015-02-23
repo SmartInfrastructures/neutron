@@ -31,6 +31,10 @@ from neutron.plugins.ml2.drivers import type_tunnel
 # REVISIT(kmestery): Allow the type and mechanism drivers to supply the
 # mixins and eventually remove the direct dependencies on type_tunnel.
 
+#qos
+from neutron.db import qos_rpc_base as qos_db_rpc
+from neutron.services.qos.agents import qos_rpc
+
 LOG = log.getLogger(__name__)
 
 TAP_DEVICE_PREFIX = 'tap'
@@ -39,7 +43,8 @@ TAP_DEVICE_PREFIX_LENGTH = 3
 
 class RpcCallbacks(dhcp_rpc_base.DhcpRpcCallbackMixin,
                    sg_db_rpc.SecurityGroupServerRpcCallbackMixin,
-                   type_tunnel.TunnelRpcCallbackMixin):
+                   type_tunnel.TunnelRpcCallbackMixin,
+                   qos_db_rpc.QoSServerRpcCallbackMixin):
 
     RPC_API_VERSION = '1.1'
     # history
@@ -205,7 +210,8 @@ class RpcCallbacks(dhcp_rpc_base.DhcpRpcCallbackMixin,
 
 class AgentNotifierApi(proxy.RpcProxy,
                        sg_rpc.SecurityGroupAgentRpcApiMixin,
-                       type_tunnel.TunnelAgentRpcApiMixin):
+                       type_tunnel.TunnelAgentRpcApiMixin,
+                       qos_rpc.QoSAgentRpcApiMixin):
     """Agent side of the openvswitch rpc API.
 
     API version history:
