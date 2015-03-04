@@ -68,7 +68,7 @@ class QoSAgentRpcApiMixin(object):
 
     def port_qos_updated(self, context, qos_id, port_id):
         self.fanout_cast(context,
-                         self.make_msg('port_qos_updated',
+                         self.make_msg('port_qos_update',
                                        qos_id=qos_id,
                                        port_id=port_id),
                          version=QOS_RPC_VERSION,

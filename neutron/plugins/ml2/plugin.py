@@ -679,6 +679,13 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                     self.update_address_pairs_on_port(context, id, port,
                                                       original_port,
                                                       updated_port))
+            elif 'qos' in port['port']:
+                print "QOS present"
+                self._process_create_qos_for_port(context, port['port']['qos'], id)
+                self.notifier.port_update(context, port)
+                                          #def port_update(self, context, port, network_type, segmentation_id,
+                                          #physical_network):
+                need_port_update_notify = True
             elif changed_fixed_ips:
                 self._check_fixed_ips_and_address_pairs_no_overlap(
                     context, updated_port)

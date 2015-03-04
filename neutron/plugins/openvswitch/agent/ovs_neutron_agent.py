@@ -45,6 +45,7 @@ from neutron.plugins.common import constants as p_const
 from neutron.plugins.openvswitch.common import config  # noqa
 from neutron.plugins.openvswitch.common import constants
 
+from neutron.services.qos.agents import qos_rpc
 
 LOG = logging.getLogger(__name__)
 
@@ -119,10 +120,18 @@ class OVSSecurityGroupAgent(sg_rpc.SecurityGroupAgentRpcMixin):
         self.plugin_rpc = plugin_rpc
         self.root_helper = root_helper
         self.init_firewall(defer_refresh_firewall=True)
+        
+
+class OVSQoSAgent(qos_rpc.QoSAgentRpcMixin):
+    def __init__(self, context, plugin_rpc, root_helper, **kwargs):
+        self.context = context
+        self.plugin_rpc = plugin_rpc
+        self.root_helper = root_helper
 
 
 class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
-                      l2population_rpc.L2populationRpcCallBackMixin):
+                      l2population_rpc.L2populationRpcCallBackMixin,
+                      qos_rpc.QoSAgentRpcCallbackMixin):
     '''Implements OVS-based tunneling, VLANs and flat networks.
 
     Two local bridges are created: an integration bridge (defaults to
@@ -235,6 +244,32 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         # Initialize iteration counter
         self.iter_num = 0
         self.run_daemon_loop = True
+        
+        self.init_qos()
+        
+        
+    def init_qos(self):
+        # QoS agent support
+        self.qos_agent = OVSQoSAgent(self.context,
+                                     self.plugin_rpc,
+                                     self.root_helper)
+        
+        #if 'OpenflowQoSVlanDriver' in cfg.CONF.qos.qos_driver:
+        if False:
+            # TODO(scollins) - Make this configurable, if there is
+            # more than one physical bridge added to
+            # bridge_mappings
+            if self.phys_brs:
+                external_bridge = self.phys_brs[self.phys_brs.keys()[0]]
+                self.qos_agent.init_qos(ext_bridge=external_bridge,
+                                        int_bridge=self.int_br,
+                                        local_vlan_map=self.local_vlan_map
+                                        )
+            else:
+                LOG.exception(_("Unable to activate QoS API."
+                                "No bridge_mappings configured!"))
+        else:
+            self.qos_agent.init_qos()
 
     def _check_ovs_version(self):
         if p_const.TYPE_VXLAN in self.tunnel_types:
@@ -307,6 +342,12 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         # are processed in the same order as the relevant API requests
         self.updated_ports.add(port['id'])
         LOG.debug(_("port_update message processed for port %s"), port['id'])
+        
+    def port_qos_update(self, context, **kwargs):
+        qos = kwargs.get('qos')
+        port = kwargs.get('port')
+        print "QoS apply to port"
+        
 
     def tunnel_update(self, context, **kwargs):
         LOG.debug(_("tunnel_update received"))
