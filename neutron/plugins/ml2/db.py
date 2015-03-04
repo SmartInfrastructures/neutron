@@ -25,6 +25,9 @@ from neutron.openstack.common import uuidutils
 from neutron.plugins.ml2 import driver_api as api
 from neutron.plugins.ml2 import models
 
+import neutron.db.qos_db
+from neutron.db.qos_db import QoSPolicy, QoSCN
+
 LOG = log.getLogger(__name__)
 
 
@@ -134,3 +137,10 @@ def get_port_binding_host(port_id):
                       {'port_id': port_id})
             return
     return query.host
+
+def get_qos_policy(qos_id):
+    session = db_api.get_session()
+    with session.begin(subtransactions=True):
+        query = (session.query(QoSPolicy)
+                 )
+    return query
