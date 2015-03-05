@@ -249,12 +249,10 @@ class AgentNotifierApi(proxy.RpcProxy,
                                        physical_network=physical_network),
                          topic=self.topic_port_update)
 
-    def port_qos_update(self, context, port, network_type, segmentation_id,
-                    physical_network):
+    def port_qos_update(self, context, port, network, qos_policy):
         self.fanout_cast(context,
                          self.make_msg('port_qos_update',
                                        port=port,
-                                       network_type=network_type,
-                                       segmentation_id=segmentation_id,
-                                       physical_network=physical_network),
+                                       network = network,
+                                       qos_policy = qos_policy),
                          topic=self.topic_port_update)

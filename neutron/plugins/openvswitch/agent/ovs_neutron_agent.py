@@ -344,10 +344,29 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         LOG.debug(_("port_update message processed for port %s"), port['id'])
         
     def port_qos_update(self, context, **kwargs):
-        qos = kwargs.get('qos')
+        policy = kwargs.get('qos_policy')
         port = kwargs.get('port')
-        print "QoS apply to port"
+        network = kwargs.get('network')
         
+        try:
+            vlan_id = self.local_vlan_map.get(network['id']).vlan
+            segmentation_id = self.local_vlan_map.get(network['id']).segmentation_id
+        except Exception:
+            raise ValueError('Error in get information')
+            return
+        
+        try:
+            ingress_rate = policy['ingress_rate']
+            egress_rate = policy['egress_rate']
+            dscp = policy['dscp']
+        except Exception:
+            raise ValueError('Error')
+            return
+        
+        self.tun_br.add_flow(table=2, priority=1, tun_id=segmentation_id, 
+                             actions="mod_vlan_vid:%i,mod_nw_tos=%i,resubmit(,%s)" % 
+                             (vlan_id, dscp, constants.LEARN_FROM_TUN))
+        LOG.debug(_("Quality of Service apply to port %s"), port['id'])
 
     def tunnel_update(self, context, **kwargs):
         LOG.debug(_("tunnel_update received"))

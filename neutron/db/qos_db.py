@@ -29,7 +29,10 @@ from sqlalchemy import orm
 
 import webob.exc
 
-list_avaible_policy = [constants.TYPE_QOS_BURST_RATE, constants.TYPE_QOS_DSCP,
+# list_avaible_policy = [constants.TYPE_QOS_BURST_RATE, constants.TYPE_QOS_DSCP,
+#                        constants.TYPE_QOS_EGRESS_RATE, constants.TYPE_QOS_INGRESS_RATE]
+
+list_avaible_policy = [constants.TYPE_QOS_DSCP,
                        constants.TYPE_QOS_EGRESS_RATE, constants.TYPE_QOS_INGRESS_RATE]
 
 

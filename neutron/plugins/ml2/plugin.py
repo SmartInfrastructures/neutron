@@ -58,6 +58,7 @@ from neutron.plugins.ml2 import rpc
 #[qos]
 from neutron.db import qos_rpc_base as qos_db_rpc
 from neutron.extensions import qos
+from neutron.db.qos_db import QoSDbMixin as qosDb
 
 LOG = log.getLogger(__name__)
 
@@ -365,21 +366,19 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                                   segment[api.SEGMENTATION_ID],
                                   segment[api.PHYSICAL_NETWORK])
         
-    def _notify_qos_updated(self, mech_context, qos_id):
+    def _notify_qos_updated(self, mech_context, qos):
         port = mech_context._port
-        segment = mech_context.bound_segment
-        if not segment:
+        network = mech_context.network.current
+#        segment = mech_context.bound_segment
+#        if not segment:
             # REVISIT(rkukura): This should notify agent to unplug port
-            network = mech_context.network.current
-            return
+#            network = mech_context.network.current
+#            return
 #         self.notifier.port_update(mech_context._plugin_context, port,
 #                                   segment[api.NETWORK_TYPE],
 #                                   segment[api.SEGMENTATION_ID],
 #                                   segment[api.PHYSICAL_NETWORK])
-        self.notifier.port_qos_update(mech_context._plugin_context, port,
-                                  segment[api.NETWORK_TYPE],
-                                  segment[api.SEGMENTATION_ID],
-                                  segment[api.PHYSICAL_NETWORK])
+        self.notifier.port_qos_update(mech_context._plugin_context, port, network, qos['policies'])
         
 
     # TODO(apech): Need to override bulk operations
@@ -712,8 +711,11 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             self.mechanism_manager.update_port_precommit(mech_context)
             
             if 'qos' in port['port']:
-                qos_policy = db.get_qos_policy(port['port']['qos'])
-                self._notify_qos_updated(mech_context, port['port']['qos'])
+                qos = qosDb.get_qos(self, context, port['port']['qos'])
+                try:
+                    self._notify_qos_updated(mech_context, qos)
+                except Exception:
+                    raise ValueError('error')
 
         # TODO(apech) - handle errors raised by update_port, potentially
         # by re-calling update_port with the previous attributes. For
