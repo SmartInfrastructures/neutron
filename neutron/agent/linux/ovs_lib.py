@@ -454,6 +454,24 @@ class OVSBridge(BaseOVS):
         else:
             msg = _('Unable to determine mac address for %s') % self.br_name
             raise Exception(msg)
+        
+    def egress_rate(self, rate, port_name):
+# ovs-vsctl -- set port tap0 qos=@newqos \
+# -- --id=@newqos create qos type=linux-htb \
+# other-config:max-rate=100000 queues:0=@newqueue \
+# -- --id=@newqueue create queue \
+# other-config:min-rate=1000000 \
+# other-config:max-rate=1000000 \
+        self.run_vsctl(["--", "set", "port", port_name, "qos=@newqos",
+                        "--", "--id=@newqos", "create", "qos", "type=linux-htb",
+                       "other-config:max-rate=%i"%(rate*1000), "queues:0=@newqueue",
+                        "--", "--id=@newqueue", "create", "queue",
+                        "other-config:min-rate=%i"%(rate*1000),
+                        "other-config:max-rate=%i"%(rate*1000)], True)
+        
+    def ingress_rate(self, rate, port_name):
+        #ovs-vsctl set interface tap0 ingress_policing_rate=1000
+        self.run_vsctl(["set", "interface", port_name, "ingress_policing_rate=%i"%(rate)], True)
 
 
 def get_bridge_for_iface(root_helper, iface):

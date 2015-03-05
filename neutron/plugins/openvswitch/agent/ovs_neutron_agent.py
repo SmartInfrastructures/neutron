@@ -366,6 +366,9 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         self.tun_br.add_flow(table=2, priority=1, tun_id=segmentation_id, 
                              actions="mod_vlan_vid:%i,mod_nw_tos=%i,resubmit(,%s)" % 
                              (vlan_id, dscp, constants.LEARN_FROM_TUN))
+        port_to_update = str("qvo" + port["id"][:11])
+        self.int_br.ingress_rate(ingress_rate, port_to_update)
+        self.int_br.egress_rate(egress_rate, port_to_update)
         LOG.debug(_("Quality of Service apply to port %s"), port['id'])
 
     def tunnel_update(self, context, **kwargs):
