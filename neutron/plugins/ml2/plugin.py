@@ -672,6 +672,15 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                             "failed, deleting port '%s'"), result['id'])
                 self.delete_port(context, result['id'])
         self.notify_security_groups_member_updated(context, result)
+        
+        try:
+            mech_context = driver_context.PortContext(
+                    self, context, result, network)
+            qos = qosDb.get_default_policy(self, context)
+            self._notify_qos_updated(mech_context, qos)
+        except Exception:
+            pass
+        
         return result
 
     def update_port(self, context, id, port):

@@ -243,7 +243,8 @@ class RyuNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         
         # Add default qos rule
         try:
-            qos_database =self._create_qos_cn_dict(self._model_query(context, QoSCN).filter(QoSCN.default == 1)[0], fields='policies') 
+            #qos_database =self._create_qos_cn_dict(self._model_query(context, QoSCN).filter(QoSCN.default == 1)[0], fields='policies')
+            qos_database = self.get_default_policy(context)
             
             ingress_rate = qos_database['policies'][constants.TYPE_QOS_INGRESS_RATE]
             egress_rate = qos_database['policies'][constants.TYPE_QOS_EGRESS_RATE]
