@@ -245,31 +245,35 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         self.iter_num = 0
         self.run_daemon_loop = True
         
-        self.init_qos()
+        #map for apply default qos_policy to a port:
+        #<port-name> <policy>
+        self.qos_port_mapping = {}
+        
+#         self.init_qos()
         
         
-    def init_qos(self):
-        # QoS agent support
-        self.qos_agent = OVSQoSAgent(self.context,
-                                     self.plugin_rpc,
-                                     self.root_helper)
-        
-        #if 'OpenflowQoSVlanDriver' in cfg.CONF.qos.qos_driver:
-        if False:
-            # TODO(scollins) - Make this configurable, if there is
-            # more than one physical bridge added to
-            # bridge_mappings
-            if self.phys_brs:
-                external_bridge = self.phys_brs[self.phys_brs.keys()[0]]
-                self.qos_agent.init_qos(ext_bridge=external_bridge,
-                                        int_bridge=self.int_br,
-                                        local_vlan_map=self.local_vlan_map
-                                        )
-            else:
-                LOG.exception(_("Unable to activate QoS API."
-                                "No bridge_mappings configured!"))
-        else:
-            self.qos_agent.init_qos()
+#     def init_qos(self):
+#         # QoS agent support
+#         self.qos_agent = OVSQoSAgent(self.context,
+#                                      self.plugin_rpc,
+#                                      self.root_helper)
+#         
+#         #if 'OpenflowQoSVlanDriver' in cfg.CONF.qos.qos_driver:
+#         if False:
+#             # TODO(scollins) - Make this configurable, if there is
+#             # more than one physical bridge added to
+#             # bridge_mappings
+#             if self.phys_brs:
+#                 external_bridge = self.phys_brs[self.phys_brs.keys()[0]]
+#                 self.qos_agent.init_qos(ext_bridge=external_bridge,
+#                                         int_bridge=self.int_br,
+#                                         local_vlan_map=self.local_vlan_map
+#                                         )
+#             else:
+#                 LOG.exception(_("Unable to activate QoS API."
+#                                 "No bridge_mappings configured!"))
+#         else:
+#             self.qos_agent.init_qos()
 
     def _check_ovs_version(self):
         if p_const.TYPE_VXLAN in self.tunnel_types:
@@ -349,13 +353,6 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         network = kwargs.get('network')
         
         try:
-            vlan_id = self.local_vlan_map.get(network['id']).vlan
-            segmentation_id = self.local_vlan_map.get(network['id']).segmentation_id
-        except Exception:
-            raise ValueError('Error in get information')
-            return
-        
-        try:
             ingress_rate = policy['ingress_rate']
             egress_rate = policy['egress_rate']
             dscp = policy['dscp']
@@ -363,13 +360,33 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
             raise ValueError('Error')
             return
         
-        self.tun_br.add_flow(table=2, priority=1, tun_id=segmentation_id, 
-                             actions="mod_vlan_vid:%i,mod_nw_tos=%i,resubmit(,%s)" % 
-                             (vlan_id, dscp, constants.LEARN_FROM_TUN))
         port_to_update = str("qvo" + port["id"][:11])
-        self.int_br.ingress_rate(ingress_rate, port_to_update)
-        self.int_br.egress_rate(egress_rate, port_to_update)
+        port_of_number = self.int_br.get_port_ofport(port_to_update)
+        if port_of_number:
+            self._apply_qos_rate_limit(port_to_update, ingress_rate, egress_rate)
+            self._apply_qos_of(2, 2, network['id'], dscp)
+        else:
+            self.qos_port_mapping[port_to_update] = policy
+
+#        self.int_br.add_flow(table=0, priority=2, in_port=port_of_number,
+#                             actions="mod_nw_tos=%i,NORMAL" % dscp)
+
         LOG.debug(_("Quality of Service apply to port %s"), port['id'])
+        
+    def _apply_qos_rate_limit(self, port_name, ingress_rate, egress_rate):
+        self.int_br.ingress_rate(ingress_rate, port_name)
+        self.int_br.egress_rate(egress_rate, port_name)
+    
+    def _apply_qos_of(self, table, priority, network_id, dscp):
+        try:
+            vlan_id = self.local_vlan_map.get(network_id).vlan
+            segmentation_id = self.local_vlan_map.get(network_id).segmentation_id
+        except Exception:
+            raise ValueError('Error in get information')
+            return
+        self.tun_br.add_flow(table=table, priority=priority, 
+                                 tun_id=segmentation_id, 
+                                 actions="mod_vlan_vid:%i,mod_nw_tos=%i,resubmit(,%s)" % (vlan_id, dscp, constants.LEARN_FROM_TUN))
 
     def tunnel_update(self, context, **kwargs):
         LOG.debug(_("tunnel_update received"))
@@ -682,6 +699,12 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
                                          str(lvm.vlan))
             if port.ofport != -1:
                 self.int_br.delete_flows(in_port=port.ofport)
+                
+        # Add default policy
+        if port.port_name in self.qos_port_mapping:
+            default_policy = self.qos_port_mapping[port.port_name]
+            self._apply_qos_rate_limit(port.port_name, default_policy['ingress_rate'], default_policy['egress_rate'])
+            self._apply_qos_of(2, 3, net_uuid, default_policy['dscp'])
 
     def port_unbound(self, vif_id, net_uuid=None):
         '''Unbind port.
