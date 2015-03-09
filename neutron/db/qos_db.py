@@ -311,30 +311,32 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
         except Exception:
             pass
         
-        try:
-            main_arg = {}
-            if qos['qos']['shared']:
-                db = self._model_query(context, QoSCN).filter(QoSCN.id == id)
-                main_arg['shared'] = _convert_true_false(qos['qos']['shared'])
-                db.update(main_arg)
-            policies = qos['qos']['policies']
-            print "policies present for updating"
-            kwargs = {}
-            if constants.TYPE_QOS_DSCP in qos['qos']['policies']:
-                _dscp = qos['qos']['policies'][constants.TYPE_QOS_DSCP]
-                kwargs[constants.TYPE_QOS_DSCP] = _dscp
-            if constants.TYPE_QOS_EGRESS_RATE in qos['qos']['policies']:
-                _egress_rate = qos['qos']['policies'][constants.TYPE_QOS_EGRESS_RATE]
-                kwargs[constants.TYPE_QOS_EGRESS_RATE] = _egress_rate
-            if constants.TYPE_QOS_INGRESS_RATE in qos['qos']['policies']:
-                _ingress_rate = qos['qos']['policies'][constants.TYPE_QOS_INGRESS_RATE]
-                kwargs[constants.TYPE_QOS_INGRESS_RATE] = _ingress_rate
-            if constants.TYPE_QOS_BURST_RATE in qos['qos']['policies']:
-                _burst_percent = qos['qos']['policies'][constants.TYPE_QOS_BURST_RATE]
-                kwargs[constants.TYPE_QOS_BURST_RATE] = _burst_percent
+        main_arg = {}
+        main_arg_policies = {}
+        if 'public' in qos['qos']:
+            main_arg['public'] = _convert_true_false(qos['qos']['public'])
+        if 'default' in qos['qos']:
+            main_arg['default'] = _convert_true_false(qos['qos']['default'])
+        if 'description' in qos['qos']:
+            main_arg['description'] = qos['qos']['description']
             
-            db = self._model_query(context, PolicyCN).filter(PolicyCN.qos_id == id)
-            db.update(kwargs)
+        if constants.TYPE_QOS_DSCP in qos['qos']['policies']:
+            main_arg_policies[constants.TYPE_QOS_DSCP] = qos['qos']['policies'][constants.TYPE_QOS_DSCP]
+            
+        if constants.TYPE_QOS_EGRESS_RATE in qos['qos']['policies']:
+            main_arg_policies[constants.TYPE_QOS_EGRESS_RATE] = qos['qos']['policies'][constants.TYPE_QOS_EGRESS_RATE]
+            
+        if constants.TYPE_QOS_INGRESS_RATE in qos['qos']['policies']:
+            main_arg_policies[constants.TYPE_QOS_INGRESS_RATE] = qos['qos']['policies'][constants.TYPE_QOS_INGRESS_RATE]
+            
+        try:
+            
+            db = self._model_query(context, QoSCN).filter(QoSCN.id == id)
+            db.update(main_arg)
+            
+            if main_arg_policies:
+                db = self._model_query(context, PolicyCN).filter(PolicyCN.qos_id == id)
+                db.update(main_arg_policies)
         except Exception:
             pass
         
@@ -416,6 +418,13 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
         try:
             query = self._model_query(context, QoSCN).filter(QoSCN.id == id)[0]
             return self._create_qos_cn_dict(query, fields)
+        except Exception:
+            raise QoSNotFound()
+        
+    def get_default_policy(self, context):
+        try:
+            query = self._model_query(context, QoSCN).filter(QoSCN.default == 1)[0]
+            return self._create_qos_cn_dict(query, None)
         except Exception:
             raise QoSNotFound()
 
