@@ -308,7 +308,7 @@ class QoSDbMixin(ext_qos.QoSPluginBase):
             else:
                 raise QoSError(reason=_("Malformed request"))
         except Exception:
-            return {}
+            pass
         
         main_arg = {}
         main_arg_policies = {}
