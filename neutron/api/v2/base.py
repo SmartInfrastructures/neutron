@@ -395,7 +395,6 @@ class Controller(object):
                            item[self._resource])
             try:
                 tenant_id = item[self._resource]['tenant_id']
-                count = 1
                 count = quota.QUOTAS.count(request.context, self._resource,
                                            self._plugin, self._collection,
                                            tenant_id)
