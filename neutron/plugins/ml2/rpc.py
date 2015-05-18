@@ -35,10 +35,17 @@ from neutron.plugins.ml2.drivers import type_tunnel
 # REVISIT(kmestery): Allow the type and mechanism drivers to supply the
 # mixins and eventually remove the direct dependencies on type_tunnel.
 
+#qos
+from neutron.db import qos_rpc_base as qos_db_rpc
+from neutron.services.qos.agents import qos_rpc
+
 LOG = log.getLogger(__name__)
 
 
-class RpcCallbacks(type_tunnel.TunnelRpcCallbackMixin):
+class RpcCallbacks(type_tunnel.TunnelRpcCallbackMixin,
+                   
+                   #qos
+                   qos_db_rpc.QoSServerRpcCallbackMixin):
 
     # history
     #   1.0 Initial version (from openvswitch/linuxbridge)
@@ -203,7 +210,10 @@ class RpcCallbacks(type_tunnel.TunnelRpcCallbackMixin):
 
 class AgentNotifierApi(dvr_rpc.DVRAgentRpcApiMixin,
                        sg_rpc.SecurityGroupAgentRpcApiMixin,
-                       type_tunnel.TunnelAgentRpcApiMixin):
+                       type_tunnel.TunnelAgentRpcApiMixin,
+                       
+                       #qos
+                       qos_rpc.QoSAgentRpcApiMixin):
     """Agent side of the openvswitch rpc API.
 
     API version history:
@@ -245,3 +255,12 @@ class AgentNotifierApi(dvr_rpc.DVRAgentRpcApiMixin,
         cctxt = self.client.prepare(topic=self.topic_port_delete,
                                     fanout=True)
         cctxt.cast(context, 'port_delete', port_id=port_id)
+
+#qos        
+    def port_qos_update(self, context, port, network, qos_policy):
+        self.fanout_cast(context,
+                         self.make_msg('port_qos_update',
+                                       port=port,
+                                       network = network,
+                                       qos_policy = qos_policy),
+                         topic=self.topic_port_update)

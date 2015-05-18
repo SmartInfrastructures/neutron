@@ -177,3 +177,10 @@ RPC_NAMESPACE_STATE = None
 
 # Default network MTU value when not configured
 DEFAULT_NETWORK_MTU = 0
+
+#qos
+TYPE_QOS_DSCP = "dscp"
+TYPE_QOS_RATELIMIT = "rate_limit"
+TYPE_QOS_INGRESS_RATE = "ingress_rate"
+TYPE_QOS_EGRESS_RATE = "egress_rate"
+TYPE_QOS_BURST_RATE = "burst_percent"

@@ -77,6 +77,11 @@ from neutron.plugins.ml2 import managers
 from neutron.plugins.ml2 import models
 from neutron.plugins.ml2 import rpc
 
+#[qos]
+from neutron.db import qos_rpc_base as qos_db_rpc
+from neutron.extensions import qos
+from neutron.db.qos_db import QoSDbMixin as qosDb
+
 LOG = log.getLogger(__name__)
 
 MAX_BIND_TRIES = 10
@@ -94,7 +99,10 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                 addr_pair_db.AllowedAddressPairsMixin,
                 vlantransparent_db.Vlantransparent_db_mixin,
                 extradhcpopt_db.ExtraDhcpOptMixin,
-                netmtu_db.Netmtu_db_mixin):
+                netmtu_db.Netmtu_db_mixin,
+                
+                #qos
+                qos_db_rpc.QoSServerRpcMixin):
 
     """Implement the Neutron L2 abstractions using modules.
 
@@ -118,7 +126,10 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                                     "dhcp_agent_scheduler",
                                     "multi-provider", "allowed-address-pairs",
                                     "extra_dhcp_opt", "subnet_allocation",
-                                    "net-mtu", "vlan-transparent"]
+                                    "net-mtu", "vlan-transparent",
+                                    
+                                    #qos
+                                    "quality-of-service"]
 
     @property
     def supported_extension_aliases(self):
@@ -986,7 +997,17 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
         # REVISIT(rkukura): Is there any point in calling this before
         # a binding has been successfully established?
         self.notify_security_groups_member_updated(context, result)
-
+        
+        #qos
+        try:
+            network = self.get_network(context, result['network_id'])
+            mech_context = driver_context.PortContext(
+                    self, context, result, network)
+            qos = qosDb.get_default_policy(self, context)
+            self._notify_qos_updated(mech_context, qos)
+        except Exception:
+            pass
+ 
         try:
             bound_context = self._bind_port_if_needed(mech_context)
         except ml2_exc.MechanismDriverError:
@@ -1115,6 +1136,14 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
             need_port_update_notify |= self._process_port_binding(
                 mech_context, attrs)
             self.mechanism_manager.update_port_precommit(mech_context)
+            
+            #qos
+            if 'qos' in port['port']:
+                qos = qosDb.get_qos(self, context, port['port']['qos'])
+                try:
+                    self._notify_qos_updated(mech_context, qos)
+                except Exception:
+                    raise ValueError('error')
 
         # Notifications must be sent after the above transaction is complete
         kwargs = {
@@ -1456,3 +1485,10 @@ class Ml2Plugin(db_base_plugin_v2.NeutronDbPluginV2,
                 if port:
                     return port.id
         return device
+    
+    #qos
+    def _notify_qos_updated(self, mech_context, qos):
+        port = mech_context._port
+        network = mech_context.network.current
+        self.notifier.port_qos_update(mech_context._plugin_context, port, network, qos['policies'])
+

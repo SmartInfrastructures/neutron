@@ -434,6 +434,18 @@ class OVSBridge(BaseOVS):
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         self.destroy()
+        
+#qos
+    def egress_rate(self, rate, port_name):
+        self.run_vsctl(["--", "set", "port", port_name, "qos=@newqos",
+                        "--", "--id=@newqos", "create", "qos", "type=linux-htb",
+                       "other-config:max-rate=%i"%(rate*1000), "queues:0=@newqueue",
+                        "--", "--id=@newqueue", "create", "queue",
+                        "other-config:min-rate=%i"%(rate*1000),
+                        "other-config:max-rate=%i"%(rate*1000)], True)
+        
+    def ingress_rate(self, rate, port_name):
+        self.run_vsctl(["set", "interface", port_name, "ingress_policing_rate=%i"%(rate)], True)
 
 
 class DeferredOVSBridge(object):

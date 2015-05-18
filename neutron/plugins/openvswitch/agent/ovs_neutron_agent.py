@@ -46,6 +46,9 @@ from neutron.plugins.common import constants as p_const
 from neutron.plugins.openvswitch.agent import ovs_dvr_neutron_agent
 from neutron.plugins.openvswitch.common import constants
 
+#qos
+from neutron.services.qos.agents import qos_rpc
+
 
 LOG = logging.getLogger(__name__)
 cfg.CONF.import_group('AGENT', 'neutron.plugins.openvswitch.common.config')
@@ -86,7 +89,10 @@ class OVSPluginApi(agent_rpc.PluginApi):
 
 class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
                       l2population_rpc.L2populationRpcCallBackTunnelMixin,
-                      dvr_rpc.DVRAgentRpcCallbackMixin):
+                      dvr_rpc.DVRAgentRpcCallbackMixin,
+                      
+                      #qos
+                      qos_rpc.QoSAgentRpcCallbackMixin):
     '''Implements OVS-based tunneling, VLANs and flat networks.
 
     Two local bridges are created: an integration bridge (defaults to
@@ -261,6 +267,9 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         # Initialize iteration counter
         self.iter_num = 0
         self.run_daemon_loop = True
+        
+        #qos
+        self.qos_port_mapping = {}
 
         # The initialization is complete; we can start receiving messages
         self.connection.consume_in_threads()
@@ -705,6 +714,13 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
                                          lvm.vlan)
             if port.ofport != -1:
                 self.int_br.delete_flows(in_port=port.ofport)
+        
+        #qos
+        # Add default policy
+        if port.port_name in self.qos_port_mapping:
+            default_policy = self.qos_port_mapping[port.port_name]
+            self._apply_qos_rate_limit(port.port_name, default_policy['ingress_rate'], default_policy['egress_rate'])
+            self._apply_qos_of(2, 3, net_uuid, default_policy['dscp'])
 
     @staticmethod
     def setup_arp_spoofing_protection(bridge, vif, port_details):
@@ -1653,6 +1669,48 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
             raise ValueError(_("DVR deployments for VXLAN/GRE underlays "
                                "require L2-pop to be enabled, in both the "
                                "Agent and Server side."))
+    
+    #qos        
+    def port_qos_update(self, context, **kwargs):
+        policy = kwargs.get('qos_policy')
+        port = kwargs.get('port')
+        network = kwargs.get('network')
+        
+        try:
+            ingress_rate = policy['ingress_rate']
+            egress_rate = policy['egress_rate']
+            dscp = policy['dscp']
+        except Exception:
+            raise ValueError('Error')
+            return
+        
+        port_to_update = str("qvo" + port["id"][:11])
+        port_of_number = self.int_br.get_port_ofport(port_to_update)
+        if port_of_number:
+            self._apply_qos_rate_limit(port_to_update, ingress_rate, egress_rate)
+            self._apply_qos_of(2, 2, network['id'], dscp)
+        else:
+            self.qos_port_mapping[port_to_update] = policy
+
+#        self.int_br.add_flow(table=0, priority=2, in_port=port_of_number,
+#                             actions="mod_nw_tos=%i,NORMAL" % dscp)
+
+        LOG.debug(_("Quality of Service apply to port %s"), port['id'])
+        
+    def _apply_qos_rate_limit(self, port_name, ingress_rate, egress_rate):
+        self.int_br.ingress_rate(ingress_rate, port_name)
+        self.int_br.egress_rate(egress_rate, port_name)
+    
+    def _apply_qos_of(self, table, priority, network_id, dscp):
+        try:
+            vlan_id = self.local_vlan_map.get(network_id).vlan
+            segmentation_id = self.local_vlan_map.get(network_id).segmentation_id
+        except Exception:
+            raise ValueError('Error in get information')
+            return
+        self.tun_br.add_flow(table=table, priority=priority, 
+                                 tun_id=segmentation_id, 
+                                 actions="mod_vlan_vid:%i,mod_nw_tos=%i,resubmit(,%s)" % (vlan_id, dscp, constants.LEARN_FROM_TUN))
 
 
 def _ofport_set_to_str(ofport_set):
@@ -1732,3 +1790,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+#qos
+class OVSQoSAgent(qos_rpc.QoSAgentRpcMixin):
+    def __init__(self, context, plugin_rpc, root_helper, **kwargs):
+        self.context = context
+        self.plugin_rpc = plugin_rpc
+        self.root_helper = root_helper
