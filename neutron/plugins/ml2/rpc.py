@@ -258,9 +258,12 @@ class AgentNotifierApi(dvr_rpc.DVRAgentRpcApiMixin,
 
 #qos        
     def port_qos_update(self, context, port, network, qos_policy):
-        self.fanout_cast(context,
-                         self.make_msg('port_qos_update',
-                                       port=port,
-                                       network = network,
-                                       qos_policy = qos_policy),
-                         topic=self.topic_port_update)
+        cctxt = self.client.prepare(topic=topics.get_topic_name(self.topic, 
+                                                                topics.PORT,
+                                                                topics.UPDATE),
+                                    fanout=True)
+        cctxt.cast(context,
+                   'port_qos_update',
+                   port=port,
+                   network = network, 
+                   qos_policy = qos_policy)

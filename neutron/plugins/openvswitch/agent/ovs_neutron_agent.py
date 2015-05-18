@@ -1692,14 +1692,13 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         else:
             self.qos_port_mapping[port_to_update] = policy
 
-#        self.int_br.add_flow(table=0, priority=2, in_port=port_of_number,
-#                             actions="mod_nw_tos=%i,NORMAL" % dscp)
-
         LOG.debug(_("Quality of Service apply to port %s"), port['id'])
         
     def _apply_qos_rate_limit(self, port_name, ingress_rate, egress_rate):
         self.int_br.ingress_rate(ingress_rate, port_name)
-        self.int_br.egress_rate(egress_rate, port_name)
+        
+        #TODO:egress_rate not work
+        #self.int_br.egress_rate(egress_rate, port_name)
     
     def _apply_qos_of(self, table, priority, network_id, dscp):
         try:

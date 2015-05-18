@@ -240,6 +240,23 @@ class OvsdbVsctl(ovsdb.API):
 
     def list_ports(self, bridge):
         return MultiLineCommand(self.context, 'list-ports', args=[bridge])
+    
+    #qos
+    def ingress_rate(self, rate, port_name):
+        opts = None
+        args = ["interface", port_name, "ingress_policing_rate=%i"%(rate)]
+        return BaseCommand(self.context, 'set', opts, args).execute()
+    
+    def egress_rate(self, rate, port_name):
+        opts = None
+        args = ["port", port_name, "qos=@newqos",
+                        "--", "--id=@newqos", "create", "qos", "type=linux-htb",
+                       "other-config:max-rate=%i"%(rate*1000), "queues:0=@newqueue",
+                        "--", "--id=@newqueue", "create", "queue",
+                        "other-config:min-rate=%i"%(rate*1000),
+                        "other-config:max-rate=%i"%(rate*1000)]
+        return BaseCommand(self.context, 'set', opts, args).execute()
+        
 
 
 def _set_colval_args(*col_values):
