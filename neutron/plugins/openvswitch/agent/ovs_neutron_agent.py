@@ -364,7 +364,7 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         port_of_number = self.int_br.get_port_ofport(port_to_update)
         if port_of_number:
             self._apply_qos_rate_limit(port_to_update, ingress_rate, egress_rate)
-            self._apply_qos_of(2, 2, network['id'], dscp)
+#            self._apply_qos_of(2, 2, network['id'], dscp)
         else:
             self.qos_port_mapping[port_to_update] = policy
 
