@@ -701,10 +701,11 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
                 self.int_br.delete_flows(in_port=port.ofport)
                 
         # Add default policy
-        if port.port_name in self.qos_port_mapping:
-            default_policy = self.qos_port_mapping[port.port_name]
-            self._apply_qos_rate_limit(port.port_name, default_policy['ingress_rate'], default_policy['egress_rate'])
-            self._apply_qos_of(2, 3, net_uuid, default_policy['dscp'])
+        if False:
+            if port.port_name in self.qos_port_mapping:
+                default_policy = self.qos_port_mapping[port.port_name]
+                self._apply_qos_rate_limit(port.port_name, default_policy['ingress_rate'], default_policy['egress_rate'])
+                self._apply_qos_of(2, 3, net_uuid, default_policy['dscp'])
 
     def port_unbound(self, vif_id, net_uuid=None):
         '''Unbind port.
